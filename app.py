@@ -20,5 +20,14 @@ def register():
     db.session.commit()
     return jsonify({"message": "Registered successfully", "user_id": new_user.id})
 
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.json
+    user = User.query.filter_by(phone=data['phone']).first()
+    if user:
+        return jsonify({"message": "Login successful", "user_id": user.id, "role": user.role})
+    else:
+        return jsonify({"message": "User not found"}), 404
+
 if __name__ == '__main__':
     app.run(debug=True)
