@@ -49,7 +49,7 @@ try:
 
         centres.append(centre)
 
-    print("✅ Centres Ready")
+    print("Centres Ready")
 
 
     # ==========================
@@ -73,7 +73,7 @@ try:
         db.add(admin)
         db.commit()
 
-    print("✅ Admin Ready")
+    print("Admin Ready")
 
 
     # ==========================
@@ -105,11 +105,17 @@ try:
 
     ]
 
+    # FIX: added realistic villages near Udaipur, cycled across farmers
+    villages = [
+        "Kanpur", "Badgaon", "Titardi", "Bhuwana",
+        "Sisarma", "Goverdhan Vilas", "Sapetiya", "Bedla"
+    ]
+
     farmers = []
 
     phone = 9000000001
 
-    for name in farmer_names:
+    for idx, name in enumerate(farmer_names):
 
         user = db.query(User).filter(
             User.phone == str(phone)
@@ -123,7 +129,12 @@ try:
                 phone=str(phone),
                 password_hash=hash_password("farmer123"),
                 role="farmer",
-                missed_count=random.randint(0,2)
+                missed_count=random.randint(0, 2),
+                # FIX: added village + district (district must match a real
+                # OpenWeatherMap city name since weather/crop-advisor routes
+                # look up weather by this field)
+                village=villages[idx % len(villages)],
+                district="Udaipur"
 
             )
 
@@ -135,7 +146,7 @@ try:
 
         phone += 1
 
-    print("✅ Farmers Ready")
+    print("Farmers Ready")
 
 
     # ==========================
@@ -193,7 +204,7 @@ try:
         if centre_index == len(centres):
             centre_index = 0
 
-    print("✅ Slots Ready")
+    print("Slots Ready")
 
 
 
@@ -209,14 +220,20 @@ try:
         "Gram"
     ]
 
+    # FIX: must exactly match the API contract's allowed status values
     booking_status = [
         "Confirmed",
-        "Completed"
+        "Received",
+        "Verified",
+        "Accepted",
+        "Processed"
     ]
 
+    # FIX: must exactly match the API contract's allowed payment_status values
     payment_status = [
         "Pending",
-        "Paid"
+        "Processing",
+        "Completed"
     ]
 
     bookings = []
@@ -238,9 +255,10 @@ try:
                 user_id=user.id,
                 slot_id=slot.id,
                 agent_id=None,
-                pool_type=random.choice(["General", "Priority"]),
+                # FIX: lowercase, matches pool_type checks in /book and /cancel logic
+                pool_type=random.choice(["general", "priority"]),
                 crop_type=random.choice(crops),
-                quantity=random.randint(20,100),
+                quantity=random.randint(20, 100),
                 status=random.choice(booking_status),
                 payment_status=random.choice(payment_status)
 
@@ -255,7 +273,7 @@ try:
 
         bookings.append(booking)
 
-    print("✅ Bookings Ready")
+    print("Bookings Ready")
 
 
     # ==========================
@@ -289,7 +307,7 @@ try:
 
     db.commit()
 
-    print("✅ Waitlist Ready")
+    print("Waitlist Ready")
 
     # ==========================
     # INSERT NOTIFICATIONS
@@ -322,15 +340,15 @@ try:
 
     db.commit()
 
-    print("✅ Notifications Ready")
+    print("Notifications Ready")
     print("===================================")
-    print("🎉 DATABASE SEEDED SUCCESSFULLY!")
+    print("DATABASE SEEDED SUCCESSFULLY")
     print("===================================")
 
 except Exception as e:
 
     db.rollback()
-    print("❌ ERROR OCCURRED")
+    print("ERROR OCCURRED")
     print(e)
 
 finally:

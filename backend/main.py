@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import func as sqlfunc
+import requests , os
 
 from database import engine, get_db, Base
 from models import User , Slot , Booking , Waitlist , Notification ,Centre
@@ -25,6 +26,8 @@ class RegisterRequest(BaseModel):
     phone: str
     password: str
     role: str = "farmer"
+    village: Optional[str] = None
+    district: Optional[str] = None
 
 class LoginRequest(BaseModel):
     phone: str
@@ -33,8 +36,6 @@ class LoginRequest(BaseModel):
 class CentreCreate(BaseModel):
     name: str
     address: Optional[str] = None
-    latitude: Optional[str] = None
-    longitude: Optional[str] = None
 
 
 def require_admin(authorization: str = Header(...), db: Session = Depends(get_db)):
@@ -58,7 +59,9 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
         name=data.name,
         phone=data.phone,
         password_hash=hash_password(data.password),
-        role=data.role
+        role=data.role,
+        village=data.village,
+        district=data.district
     )
     db.add(new_user)
     db.commit()
@@ -263,12 +266,102 @@ def get_admin_stats(db: Session = Depends(get_db)):
 
 @app.post("/create-centre")
 def create_centre(data: CentreCreate, db: Session = Depends(get_db), admin=Depends(require_admin)):
-    new_centre = Centre(**data.dict())
+    lat, lng = None, None
+    if data.address:
+        geocode_url = "https://nominatim.openstreetmap.org/search"
+        params = {"q": data.address, "format": "json", "limit": 1}
+        headers = {"User-Agent": "SIH-Procurement-App"}
+        response = requests.get(geocode_url, params=params, headers=headers)
+        results = response.json()
+        if results:
+            lat = results[0]["lat"]
+            lng = results[0]["lon"]
+
+    new_centre = Centre(
+        name=data.name,
+        address=data.address,
+        latitude=lat,
+        longitude=lng
+    )
     db.add(new_centre)
     db.commit()
     db.refresh(new_centre)
-    return {"message": "Centre created", "centre_id": new_centre.id}
+    return {"message": "Centre created", "centre_id": new_centre.id, "latitude": lat, "longitude": lng}
 
 @app.get("/centres")
 def get_centres(db: Session = Depends(get_db)):
     return db.query(Centre).all()
+
+@app.get("/weather/{district}")
+def get_weather(district: str):
+    api_key = os.getenv("WEATHER_API_KEY")
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={district},IN&appid={api_key}&units=metric"
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise HTTPException(status_code=404, detail="Weather data not found for this location")
+    data = response.json()
+    return {
+        "district": district,
+        "temperature": data["main"]["temp"],
+        "condition": data["weather"][0]["description"],
+        "humidity": data["main"]["humidity"]
+    }
+
+@app.get("/crop-advisor/{crop_type}")
+def crop_advisor(crop_type: str, district: str = "Udaipur"):
+    api_key = os.getenv("WEATHER_API_KEY")
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={district},IN&appid={api_key}&units=metric"
+    response = requests.get(url)
+    weather_data = response.json() if response.status_code == 200 else None
+
+    advice = f"General advice for {crop_type}: monitor market prices before selling."
+    if weather_data:
+        condition = weather_data["weather"][0]["main"].lower()
+        if "rain" in condition:
+            advice = f"Rain expected — plan transport of {crop_type} carefully and avoid delays at the centre."
+        else:
+            advice = f"Weather looks favorable for transporting {crop_type} to the centre today."
+
+    return {"crop_type": crop_type, "advice": advice}
+
+
+@app.get("/weather/user/{user_id}")
+def get_weather_for_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).get(user_id)
+    if not user or not user.district:
+        raise HTTPException(status_code=404, detail="User location not found")
+
+    api_key = os.getenv("WEATHER_API_KEY")
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={user.district},IN&appid={api_key}&units=metric"
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise HTTPException(status_code=404, detail="Weather data not found for this district")
+
+    data = response.json()
+    return {
+        "district": user.district,
+        "temperature": data["main"]["temp"],
+        "condition": data["weather"][0]["description"],
+        "humidity": data["main"]["humidity"]
+    }
+
+@app.get("/crop-advisor/user/{user_id}")
+def crop_advisor_for_user(user_id: int, crop_type: str, db: Session = Depends(get_db)):
+    user = db.query(User).get(user_id)
+    if not user or not user.district:
+        raise HTTPException(status_code=404, detail="User location not found")
+
+    api_key = os.getenv("WEATHER_API_KEY")
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={user.district},IN&appid={api_key}&units=metric"
+    response = requests.get(url)
+    weather_data = response.json() if response.status_code == 200 else None
+
+    advice = f"General advice for {crop_type}: monitor market prices before selling."
+    if weather_data:
+        condition = weather_data["weather"][0]["main"].lower()
+        if "rain" in condition:
+            advice = f"Rain expected — plan transport of {crop_type} carefully and avoid delays at the centre."
+        else:
+            advice = f"Weather looks favorable for transporting {crop_type} to the centre today."
+
+    return {"crop_type": crop_type, "district": user.district, "advice": advice}

@@ -10,6 +10,8 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     role = Column(String(20), default="farmer")
     missed_count = Column(Integer, default=0)
+    village = Column(String(100), nullable=True)
+    district = Column(String(100), nullable=True)
 
 class Slot(Base):
     __tablename__ = "slots"
