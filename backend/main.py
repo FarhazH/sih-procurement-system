@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import func as sqlfunc
 import requests , os
+from recommendation_logic import recommend_best_center
 
 from database import engine, get_db, Base
 from models import User , Slot , Booking , Waitlist , Notification ,Centre
@@ -365,3 +366,43 @@ def crop_advisor_for_user(user_id: int, crop_type: str, db: Session = Depends(ge
             advice = f"Weather looks favorable for transporting {crop_type} to the centre today."
 
     return {"crop_type": crop_type, "district": user.district, "advice": advice}
+
+
+
+@app.get("/recommend-centre/{user_id}")
+def recommend_centre(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).get(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # For demo: using a fixed farmer location if not stored (village-level GPS not collected yet)
+    # Using Udaipur city center as a fallback reference point
+    farmer_lat = 24.5854
+    farmer_lon = 73.7125
+
+    centres = db.query(Centre).all()
+    centres_list = []
+    for c in centres:
+        if c.latitude is None or c.longitude is None:
+            continue  # skip centres without coordinates
+
+        # "queue" = total currently booked (general + priority) across all slots at this centre
+        total_booked = (
+            db.query(sqlfunc.sum(Slot.general_booked + Slot.priority_booked))
+            .filter(Slot.centre_id == c.id)
+            .scalar() or 0
+        )
+
+        centres_list.append({
+            "id": c.id,
+            "name": c.name,
+            "lat": float(c.latitude),
+            "lon": float(c.longitude),
+            "queue": total_booked
+        })
+
+    if not centres_list:
+        return {"message": "No centres with location data available"}
+
+    recommendations = recommend_best_center(farmer_lat, farmer_lon, centres_list)
+    return {"recommendations": recommendations}
