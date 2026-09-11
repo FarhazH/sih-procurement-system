@@ -7,7 +7,7 @@ from sqlalchemy import func as sqlfunc
 import requests , os
 
 from database import engine, get_db, Base
-from models import User , Slot , Booking , Waitlist , Notification ,Centre
+from backend.models_backup import User , Slot , Booking , Waitlist , Notification ,Centre
 from auth import hash_password, verify_password, create_access_token , decode_access_token
 
 Base.metadata.create_all(bind=engine)

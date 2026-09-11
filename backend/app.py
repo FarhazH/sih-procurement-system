@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from models import db, User, Slot, Booking, Waitlist
+from backend.models_backup import db, User, Slot, Booking, Waitlist
 
 app = Flask(__name__)
 CORS(app)
