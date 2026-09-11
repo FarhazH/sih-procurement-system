@@ -35,6 +35,9 @@ class Booking(Base):
     quantity = Column(Integer, nullable=True)
     status = Column(String(20), default="Confirmed")
     payment_status = Column(String(20), default="Pending")
+    payment_amount = Column(Integer, nullable=True)
+    payment_date = Column(DateTime, nullable=True)
+    transaction_id = Column(String(50), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
 class Waitlist(Base):
@@ -61,3 +64,13 @@ class Centre(Base):
     address = Column(String(200), nullable=True)
     latitude = Column(String(20), nullable=True)
     longitude = Column(String(20), nullable=True)
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    admin_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    action = Column(String(100), nullable=False)
+    target_type = Column(String(50), nullable=True)
+    target_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())

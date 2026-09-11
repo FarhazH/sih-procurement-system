@@ -5,6 +5,8 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import func as sqlfunc
 import requests , os
+import pickle
+import pandas as pd
 from recommendation_logic import recommend_best_center
 
 from database import engine, get_db, Base
@@ -97,7 +99,8 @@ class StatusUpdate(BaseModel):
 
 class PaymentUpdate(BaseModel):
     payment_status: str
-
+    payment_amount: Optional[int] = None
+    transaction_id: Optional[str] = None
 # ---------- Routes ----------
 
 @app.get("/slots")
@@ -125,6 +128,7 @@ def get_slots(db: Session = Depends(get_db)):
 def create_slot(data: SlotCreate, db: Session = Depends(get_db), admin=Depends(require_admin)):
     new_slot = Slot(**data.dict())
     db.add(new_slot)
+    log_action(db, admin["user_id"], "create_slot", "slot", new_slot.id)  # adjust action/target per route
     db.commit()
     db.refresh(new_slot)
     return {"message": "Slot created", "slot_id": new_slot.id}
@@ -181,8 +185,11 @@ def update_status(booking_id: int, data: StatusUpdate, db: Session = Depends(get
         raise HTTPException(status_code=404, detail="Booking not found")
     booking.status = data.status
     db.add(Notification(user_id=booking.user_id, message=f"Your produce status: {data.status}"))
+    log_action(db, admin["user_id"], "create_slot", "slot", new_slot.id)  # adjust action/target per route
     db.commit()
     return {"message": "Status updated", "booking_id": booking.id, "new_status": booking.status}
+
+
 
 @app.put("/update-payment/{booking_id}")
 def update_payment(booking_id: int, data: PaymentUpdate, db: Session = Depends(get_db), admin=Depends(require_admin)):
@@ -190,9 +197,19 @@ def update_payment(booking_id: int, data: PaymentUpdate, db: Session = Depends(g
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
     booking.payment_status = data.payment_status
+    if data.payment_amount is not None:
+        booking.payment_amount = data.payment_amount
+    if data.transaction_id is not None:
+        booking.transaction_id = data.transaction_id
+    if data.payment_status == "Completed":
+        from datetime import datetime
+        booking.payment_date = datetime.utcnow()
     db.add(Notification(user_id=booking.user_id, message=f"Payment status: {data.payment_status}"))
+    log_action(db, admin["user_id"], "update_payment", "booking", booking_id)
     db.commit()
     return {"message": "Payment status updated", "booking_id": booking.id, "new_payment_status": booking.payment_status}
+
+
 
 @app.delete("/cancel/{booking_id}")
 def cancel_booking(booking_id: int, db: Session = Depends(get_db)):
@@ -285,6 +302,7 @@ def create_centre(data: CentreCreate, db: Session = Depends(get_db), admin=Depen
         longitude=lng
     )
     db.add(new_centre)
+    log_action(db, admin["user_id"], "create_centre", "centre", new_centre.id)  # adjust action/target per route
     db.commit()
     db.refresh(new_centre)
     return {"message": "Centre created", "centre_id": new_centre.id, "latitude": lat, "longitude": lng}
@@ -406,3 +424,136 @@ def recommend_centre(user_id: int, db: Session = Depends(get_db)):
 
     recommendations = recommend_best_center(farmer_lat, farmer_lon, centres_list)
     return {"recommendations": recommendations}
+
+
+with open("wait_time_model.pkl", "rb") as f:
+    wait_time_model = pickle.load(f)
+
+with open("crop_demand_model.pkl", "rb") as f:
+    crop_demand_model = pickle.load(f)
+
+@app.get("/predict-wait-time/{slot_id}")
+def predict_wait_time(slot_id: int, db: Session = Depends(get_db)):
+    slot = db.query(Slot).get(slot_id)
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+
+    queue_length = slot.general_booked + slot.priority_booked
+    input_data = pd.DataFrame([{
+        "center_id": slot.centre_id,
+        "time_slot": 10,  # placeholder hour, could parse from slot.time_window later
+        "queue_length": queue_length,
+        "active_counters": 2,  # placeholder, no field for this yet
+        "produce_weight_qtl": 30.0  # placeholder average
+    }])
+    predicted_minutes = wait_time_model.predict(input_data)[0]
+    return {"slot_id": slot_id, "estimated_wait_minutes": round(float(predicted_minutes), 1)}
+
+@app.get("/predict-demand")
+def predict_demand(market_id: int = 201, season_id: int = 1, session_id: int = 1):
+    input_data = pd.DataFrame([{
+        "market_id": market_id,
+        "season_id": season_id,
+        "session_id": session_id
+    }])
+    predicted_demand = crop_demand_model.predict(input_data)[0]
+    return {"predicted_demand": round(float(predicted_demand), 1)}
+
+
+
+from models import AuditLog
+
+def log_action(db: Session, admin_id: int, action: str, target_type: str = None, target_id: int = None):
+    log = AuditLog(admin_id=admin_id, action=action, target_type=target_type, target_id=target_id)
+    db.add(log)
+    db.commit()
+
+# ---------- Current user ----------
+def get_current_user(authorization: str = Header(...), db: Session = Depends(get_db)):
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    token = authorization.replace("Bearer ", "")
+    payload = decode_access_token(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    user = db.query(User).get(payload["user_id"])
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+@app.get("/auth/me")
+def auth_me(current_user: User = Depends(get_current_user)):
+    return {
+        "user_id": current_user.id,
+        "name": current_user.name,
+        "phone": current_user.phone,
+        "role": current_user.role,
+        "village": current_user.village,
+        "district": current_user.district
+    }
+
+# ---------- Health check ----------
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
+# ---------- Farmer dashboard (combined) ----------
+@app.get("/farmer/dashboard/{user_id}")
+def farmer_dashboard(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).get(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    bookings = db.query(Booking).filter_by(user_id=user_id).all()
+    waitlist = db.query(Waitlist).filter_by(user_id=user_id).all()
+    notifications = db.query(Notification).filter_by(user_id=user_id).order_by(Notification.created_at.desc()).limit(10).all()
+
+    return {
+        "profile": {"user_id": user.id, "name": user.name, "phone": user.phone, "village": user.village, "district": user.district},
+        "bookings": bookings,
+        "waitlist": waitlist,
+        "notifications": notifications
+    }
+
+# ---------- Admin: list all farmers ----------
+@app.get("/admin/farmers")
+def admin_list_farmers(db: Session = Depends(get_db), admin=Depends(require_admin)):
+    return db.query(User).filter(User.role == "farmer").all()
+
+# ---------- Admin: list all bookings (with joined details) ----------
+@app.get("/admin/bookings")
+def admin_list_bookings(db: Session = Depends(get_db), admin=Depends(require_admin)):
+    bookings = db.query(Booking).all()
+    result = []
+    for b in bookings:
+        user = db.query(User).get(b.user_id)
+        slot = db.query(Slot).get(b.slot_id)
+        centre = db.query(Centre).get(slot.centre_id) if slot else None
+        result.append({
+            "booking_id": b.id,
+            "farmer_name": user.name if user else None,
+            "farmer_phone": user.phone if user else None,
+            "centre_name": centre.name if centre else None,
+            "date": slot.date if slot else None,
+            "crop_type": b.crop_type,
+            "quantity": b.quantity,
+            "status": b.status,
+            "payment_status": b.payment_status,
+            "payment_amount": b.payment_amount
+        })
+    return result
+
+# ---------- Waitlist: get by user ----------
+@app.get("/waitlist/{user_id}")
+def get_user_waitlist(user_id: int, db: Session = Depends(get_db)):
+    return db.query(Waitlist).filter_by(user_id=user_id).all()
+
+# ---------- Notification: mark as read ----------
+@app.put("/notifications/{notification_id}/read")
+def mark_notification_read(notification_id: int, db: Session = Depends(get_db)):
+    note = db.query(Notification).get(notification_id)
+    if not note:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    note.is_read = True
+    db.commit()
+    return {"message": "Marked as read", "notification_id": note.id}
