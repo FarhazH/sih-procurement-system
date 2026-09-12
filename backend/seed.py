@@ -35,7 +35,7 @@ try:
 
     db.commit()
 
-    print("✅ User profile fields ready")
+    print("User profile fields ready")
 
 
     # =========================================================
@@ -58,7 +58,7 @@ try:
 
     db.commit()
 
-    print("✅ Centre status fields ready")
+    print("Centre status fields ready")
 
 
     # =========================================================
@@ -75,7 +75,7 @@ try:
 
     db.commit()
 
-    print("✅ Slot lifecycle fields ready")
+    print("Slot lifecycle fields ready")
 
 
     # =========================================================
@@ -98,7 +98,7 @@ try:
 
     db.commit()
 
-    print("✅ Booking lifecycle fields ready")
+    print("Booking lifecycle fields ready")
 
 
     # =========================================================
@@ -122,7 +122,7 @@ try:
 
     db.commit()
 
-    print("✅ Notification fields ready")
+    print("Notification fields ready")
 
 
     # =========================================================
@@ -158,7 +158,7 @@ try:
 
     db.commit()
 
-    print("✅ Payment table ready")
+    print("Payment table ready")
 
 
     # =========================================================
@@ -182,6 +182,8 @@ try:
             slot_id INTEGER NOT NULL
                 REFERENCES slots(id),
 
+            grade VARCHAR(10),
+
             crop_type VARCHAR(50) NOT NULL,
 
             quantity INTEGER NOT NULL,
@@ -198,7 +200,7 @@ try:
 
     db.commit()
 
-    print("✅ Procurement table ready")
+    print("Procurement table ready")
 
 
     # =========================================================
@@ -220,7 +222,7 @@ try:
 
     db.commit()
 
-    print("✅ Crop master ready")
+    print("Crop master ready")
 
 
     # =========================================================
@@ -256,7 +258,7 @@ try:
 
     db.commit()
 
-    print("✅ Crop advisory table ready")
+    print("Crop advisory table ready")
 
 
     # =========================================================
@@ -288,7 +290,7 @@ try:
 
     db.commit()
 
-    print("✅ Price history table ready")
+    print("Price history table ready")
 
 
     # =========================================================
@@ -318,7 +320,7 @@ try:
 
     db.commit()
 
-    print("✅ Audit log table ready")
+    print("Audit log table ready")
 
 
     # =========================================================
@@ -388,7 +390,7 @@ try:
 
     db.commit()
 
-    print("✅ Centres Ready")
+    print("Centres Ready")
 
 
     # =========================================================
@@ -414,7 +416,7 @@ try:
         db.commit()
         db.refresh(admin)
 
-    print("✅ Admin Ready")
+    print("Admin Ready")
 
 
     # =========================================================
@@ -533,7 +535,7 @@ try:
 
     db.commit()
 
-    print("✅ Farmers Ready")
+    print("Farmers Ready")
 
 
     # =========================================================
@@ -630,7 +632,7 @@ try:
 
     db.commit()
 
-    print("✅ Slots Ready")
+    print("Slots Ready")
 
 
     # =========================================================
@@ -646,16 +648,23 @@ try:
         "Gram"
     ]
 
-
+    # FIX: matches the real workflow used across the app
+    # (Confirmed -> Received -> Verified -> Accepted -> Processed)
+    # "Processed" is treated as the finished state, not "Completed"
     booking_status = [
         "Confirmed",
-        "Completed"
+        "Received",
+        "Verified",
+        "Accepted",
+        "Processed"
     ]
 
-
+    # FIX: matches PaymentUpdate/update-payment logic
+    # ("Completed" is the finished payment state, not "Paid")
     payment_status = [
         "Pending",
-        "Paid"
+        "Processing",
+        "Completed"
     ]
 
 
@@ -724,7 +733,7 @@ try:
         bookings.append(booking)
 
 
-    print("✅ Bookings Ready")
+    print("Bookings Ready")
 
 
     # =========================================================
@@ -762,7 +771,7 @@ try:
 
     db.commit()
 
-    print("✅ Waitlist Ready")
+    print("Waitlist Ready")
 
 
     # =========================================================
@@ -827,7 +836,7 @@ try:
         crop_ids[english] = crop_id
 
 
-    print("✅ Crop Master Ready")
+    print("Crop Master Ready")
 
 
     # =========================================================
@@ -911,7 +920,7 @@ try:
 
     db.commit()
 
-    print("✅ Rajasthan Crop Advisory Ready")
+    print("Rajasthan Crop Advisory Ready")
 
 
     # =========================================================
@@ -989,7 +998,7 @@ try:
 
     db.commit()
 
-    print("✅ Price History Ready")
+    print("Price History Ready")
 
 
     # =========================================================
@@ -1016,8 +1025,8 @@ try:
                 * 50
             )
 
-
-            if booking.payment_status == "Paid":
+            # FIX: "Completed" is the finished payment state now, not "Paid"
+            if booking.payment_status == "Completed":
 
                 paid_at = datetime.now()
 
@@ -1067,8 +1076,9 @@ try:
                     "amount":
                         amount,
 
+                    # FIX: "Completed" instead of "Paid"
                     "method":
-                        "UPI" if booking.payment_status == "Paid"
+                        "UPI" if booking.payment_status == "Completed"
                         else None,
 
                     "transaction_id":
@@ -1085,7 +1095,7 @@ try:
 
     db.commit()
 
-    print("✅ Payment Data Ready")
+    print("Payment Data Ready")
 
 
     # =========================================================
@@ -1094,7 +1104,8 @@ try:
 
     for booking in bookings:
 
-        if booking.status != "Completed":
+        # FIX: "Processed" is the finished booking status now, not "Completed"
+        if booking.status != "Processed":
 
             continue
 
@@ -1124,6 +1135,8 @@ try:
 
             continue
 
+        # NEW: random quality grade for this procurement record
+        grade = random.choice(["A", "B"])
 
         db.execute(
             text("""
@@ -1135,6 +1148,7 @@ try:
                     slot_id,
                     crop_type,
                     quantity,
+                    grade,
                     final_status,
                     procured_at
                 )
@@ -1147,6 +1161,7 @@ try:
                     :slot_id,
                     :crop_type,
                     :quantity,
+                    :grade,
                     'Completed',
                     :procured_at
                 )
@@ -1171,6 +1186,9 @@ try:
                 "quantity":
                     booking.quantity or 0,
 
+                "grade":
+                    grade,
+
                 "procured_at":
                     datetime.now()
             }
@@ -1179,8 +1197,7 @@ try:
 
     db.commit()
 
-    print("✅ Procurement Data Ready")
-
+    print("Procurement Data Ready")
 
     # =========================================================
     # 23. NOTIFICATIONS
@@ -1231,7 +1248,7 @@ try:
 
     db.commit()
 
-    print("✅ Notifications Ready")
+    print("Notifications Ready")
 
 
     # =========================================================
@@ -1279,7 +1296,7 @@ try:
         db.commit()
 
 
-    print("✅ Audit Log Ready")
+    print("Audit Log Ready")
 
 
     # =========================================================
@@ -1288,25 +1305,25 @@ try:
 
     print()
     print("==========================================")
-    print("🎉 DATABASE SEEDED SUCCESSFULLY!")
+    print("DATABASE SEEDED SUCCESSFULLY")
     print("==========================================")
-    print("✅ Farmers")
-    print("✅ Admin")
-    print("✅ Centres")
-    print("✅ Slots")
-    print("✅ Bookings")
-    print("✅ Waitlist")
-    print("✅ Notifications")
-    print("✅ Payment details")
-    print("✅ Procurement details")
-    print("✅ Crop master")
-    print("✅ Rajasthan crop advisory")
-    print("✅ Price history")
-    print("✅ Centre status")
-    print("✅ Slot lifecycle")
-    print("✅ Farmer profile fields")
-    print("✅ Language preference")
-    print("✅ Audit logs")
+    print("Farmers")
+    print("Admin")
+    print("Centres")
+    print("Slots")
+    print("Bookings")
+    print("Waitlist")
+    print("Notifications")
+    print("Payment details")
+    print("Procurement details")
+    print("Crop master")
+    print("Rajasthan crop advisory")
+    print("Price history")
+    print("Centre status")
+    print("Slot lifecycle")
+    print("Farmer profile fields")
+    print("Language preference")
+    print("Audit logs")
     print("==========================================")
 
 
@@ -1315,7 +1332,7 @@ except Exception as e:
     db.rollback()
 
     print()
-    print("❌ ERROR OCCURRED")
+    print("ERROR OCCURRED")
     print("------------------------------------------")
     print(e)
     print("------------------------------------------")
