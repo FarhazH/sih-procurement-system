@@ -33,6 +33,8 @@ class User(Base):
     state = Column(String(100), default="Rajasthan")
     address = Column(String(255), nullable=True)
     farmer_registration_id = Column(String(50), unique=True, nullable=True)
+    crop_type = Column(String(50), nullable=True)
+    crop_quantity = Column(Integer, nullable=True)
 
     # Language
     preferred_language = Column(String(10), default="en")
@@ -91,6 +93,7 @@ class Booking(Base):
     pool_type = Column(String(20), nullable=False)
     crop_type = Column(String(50), nullable=True)
     quantity = Column(Integer, nullable=True)
+    unit = Column(String(20), default="Quintal")
     status = Column(String(30), default="Confirmed")
     payment_status = Column(String(30), default="Pending")
     cancelled_at = Column(DateTime, nullable=True)

@@ -31,6 +31,12 @@ try:
 
         ALTER TABLE users
         ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS crop_type VARCHAR(50);
+
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS crop_quantity INTEGER;
     """))
 
     db.commit()
@@ -94,6 +100,9 @@ try:
 
         ALTER TABLE bookings
         ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
+
+        ALTER TABLE bookings
+        ADD COLUMN IF NOT EXISTS unit VARCHAR(20) DEFAULT 'Quintal';
     """))
 
     db.commit()

@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from "react";
+import React, {useState, useEffect, useRef} from "react";
 import {
   BarChart,
   Bar,
@@ -50,8 +50,8 @@ const translations = {
     queue: "Queue & Status",
     payment: "Payment Status",
     notifications: "Notifications",
-    howToUse: "How to Use Agro Vision",
-    howToUseDesc: "Watch this simple demonstration to learn how to use the Agro Vision Smart Procurement platform.",
+    howToUse: "How to Use Procura",
+    howToUseDesc: "Watch this simple demonstration to learn how to use the Procura Smart Procurement platform.",
 
     // Farmer Dashboard
     farmerDashboard: "Farmer Dashboard",
@@ -297,11 +297,11 @@ const extraTranslations = {
     demoDataNote: "Demo data is shown here and can be connected to your real backend/API later.",
     activeBooking: "Active Booking", cancelled: "Cancelled", cancelAction: "Cancel this booking",
     videoUnavailable: "Demonstration video will appear here when the video file is added.",
-    howToUseEnglish: "How to Use Agro Vision", howToUseHindi: "एग्रो विज़न का उपयोग कैसे करें",
+    howToUseEnglish: "How to Use Procura", howToUseHindi: "प्रोक्यूरा का उपयोग कैसे करें",
     videoEnglish: "English demonstration", videoHindi: "Hindi demonstration",
-    watchDemo: "Watch this simple demonstration to learn how to use Agro Vision.",
-    systemReady: "Simple, clear and farmer-friendly", feedback: "Feedback", feedbackTitle: "Share Your Feedback", feedbackDesc: "Tell us how Agro Vision can serve you better.", rating: "Rating", comments: "Comments", feedbackCategory: "Category (Optional)", selectCategory: "Select a category", categoryBooking: "Booking", categoryPayment: "Payment", categoryCentre: "Procurement Centre", categoryApp: "Website / App", categoryOther: "Other", feedbackPlaceholder: "Write your feedback here...", feedbackSuccess: "Thank you! Your feedback has been submitted.", callAdmin: "Call Admin", callAdminDesc: "Contact the procurement admin when you need help.", adminPhoneNotConfigured: "Admin phone number is not configured yet. Add the real number in ADMIN_PHONE_NUMBER.", callConfirmation: "Call the procurement admin now?", cropPrices: "Rajasthan Crop Prices", cropPricesDesc: "Farmer-friendly Rajasthan crop price and trend information.", demoPriceLabel: "Demo / Sample Data", priceSourceNote: "These are sample frontend values, not live market prices. Replace the data with a verified API before using them as current prices.", priceUnit: "Price Unit", market: "Market", priceDate: "Price Date", trend: "Trend", trendingCrops: "Trending Crops in Rajasthan", highDemand: "High Selling Demand", priceMovement: "Notable Price Movement", up: "Up", down: "Down", stable: "Stable", adminGpsTitle: "Admin Location", adminGpsDesc: "Use your browser location when relevant for centre operations.", adminLocationNote: "Location is requested only when you press the button and is used in this browser for this demo.", locationStatus: "Location Status", feedbackStoredDemo: "Feedback is stored locally in this browser for this demo.", bookingNotificationTitle: "Booking Confirmed", bookingNotificationText: "Your slot has been successfully booked.", reachCentre: "Please reach the procurement centre at your selected time.", saleNotificationTitle: "Crop Sale & Payment Completed", saleNotificationText: "Your crop sale has been completed and payment has been successfully processed.", quantityLabel: "Quantity", paymentAmount: "Payment Amount", paid: "Paid",
-    feedback:"Feedback",feedbackTitle:"Share Your Feedback",feedbackDesc:"Tell us how Agro Vision can serve you better.",rating:"Rating",comments:"Comments",feedbackCategory:"Category (Optional)",selectCategory:"Select a category",categoryBooking:"Booking",categoryPayment:"Payment",categoryCentre:"Procurement Centre",categoryApp:"Website / App",categoryOther:"Other",feedbackPlaceholder:"Write your feedback here...",feedbackSuccess:"Thank you! Your feedback has been submitted.",callAdmin:"Call Admin",callAdminDesc:"Contact the procurement admin when you need help.",adminPhoneNotConfigured:"Admin phone number is not configured yet. Add the real number in ADMIN_PHONE_NUMBER.",callConfirmation:"Call the procurement admin now?",cropPrices:"Rajasthan Crop Prices",cropPricesDesc:"Farmer-friendly Rajasthan crop price and trend information.",demoPriceLabel:"Demo / Sample Data",demoValue:"Demo value",sampleMarket:"Rajasthan sample",demoDate:"Demo",medium:"Medium",priceSourceNote:"These are sample frontend values, not live market prices. Replace them with a verified API before using them as current prices.",priceUnit:"Price Unit",market:"Market",priceDate:"Price Date",trend:"Trend",trendingCrops:"Trending Crops in Rajasthan",highDemand:"High Selling Demand",priceMovement:"Notable Price Movement",up:"Up",down:"Down",stable:"Stable",adminGpsTitle:"Admin Location",adminGpsDesc:"Use your browser location when relevant for centre operations.",adminLocationNote:"Location is requested only when you press the button and is used in this browser for this demo.",locationStatus:"Location Status",feedbackStoredDemo:"Feedback is stored locally in this browser for this demo.",bookingNotificationTitle:"Booking Confirmed",bookingNotificationText:"Your slot has been successfully booked.",reachCentre:"Please reach the procurement centre at your selected time.",saleNotificationTitle:"Crop Sale & Payment Completed",saleNotificationText:"Your crop sale has been completed and payment has been successfully processed.",quantityLabel:"Quantity",paymentAmount:"Payment Amount",paid:"Paid",unread:"New",noNewNotifications:"No new generated notifications yet.",markPaid:"Mark as Paid",barley:"Barley",guar:"Guar",gpsTitle: "Nearby Procurement Centres", gpsDesc: "Use your phone's location to see how far you are from each procurement centre.", locateMe: "Locate Me", locating: "Finding your location...", locationReady: "Your location is ready.", locationDenied: "Location permission was denied. Allow location access in your browser and try again.", locationUnavailable: "Your location could not be found. Check GPS/location settings and try again.", locationTimeout: "Location request timed out. Move to an open area and try again.", distanceFromYou: "Distance from you", openMaps: "Navigate", coordinates: "Your coordinates", nearbyCentre: "Nearest procurement centre", kmAway: "km away", locationNote: "Your location is used only in this browser to calculate distances. It is not saved by this demo.", gpsNotSupported: "Geolocation is not supported by this browser.", cropAdvisory: "Crop Selling Advisory", cropAdvisoryDesc: "Indicative Rajasthan seasonal selling-demand guidance. Use it with local market prices and procurement requirements.", recommendedCrop: "Recommended Crop", demandScore: "Seasonal Demand Score", bestSellingWindow: "Best Selling Window", advisoryNote: "This is an indicative seasonal advisory, not live mandi prices or a guaranteed selling price.", wheat: "Wheat", mustard: "Mustard", bajra: "Bajra", maize: "Maize", gram: "Gram", barley: "Barley", guar: "Guar", score: "Score (1–5)", monthJan: "January", monthFeb: "February", monthMar: "March", monthApr: "April", monthMay: "May", monthJun: "June", monthJul: "July", monthAug: "August", monthSep: "September", monthOct: "October", monthNov: "November", monthDec: "December", advisoryGraph: "Rajasthan Crop Selling Demand by Month", advisoryGraphDesc: "Higher score means a stronger seasonal selling/procurement window in this demo advisory." , location: "Location", gps: "GPS / Nearby Centres", useLocation: "Use GPS to find nearby centres", distance: "Distance", noLocationYet: "Press Locate Me to calculate distances.", unread: "New", noNewNotifications: "No new generated notifications yet.", markPaid: "Mark as Paid",
+    watchDemo: "Watch this simple demonstration to learn how to use Procura.",
+    systemReady: "Simple, clear and farmer-friendly", feedback: "Feedback", feedbackTitle: "Share Your Feedback", feedbackDesc: "Tell us how Procura can serve you better.", rating: "Rating", comments: "Comments", feedbackCategory: "Category (Optional)", selectCategory: "Select a category", categoryBooking: "Booking", categoryPayment: "Payment", categoryCentre: "Procurement Centre", categoryApp: "Website / App", categoryOther: "Other", feedbackPlaceholder: "Write your feedback here...", feedbackSuccess: "Thank you! Your feedback has been submitted.", callAdmin: "Call Admin", callAdminDesc: "Contact the procurement admin when you need help.", adminPhoneNotConfigured: "Admin phone number is not configured yet. Add the real number in ADMIN_PHONE_NUMBER.", callConfirmation: "Call the procurement admin now?", cropPrices: "Rajasthan Crop Prices", cropPricesDesc: "Farmer-friendly Rajasthan crop price and trend information.", demoPriceLabel: "Demo / Sample Data", priceSourceNote: "These are sample frontend values, not live market prices. Replace the data with a verified API before using them as current prices.", priceUnit: "Price Unit", market: "Market", priceDate: "Price Date", trend: "Trend", trendingCrops: "Trending Crops in Rajasthan", highDemand: "High Selling Demand", priceMovement: "Notable Price Movement", up: "Up", down: "Down", stable: "Stable", adminGpsTitle: "Admin Location", adminGpsDesc: "Use your browser location when relevant for centre operations.", adminLocationNote: "Location is requested only when you press the button and is used in this browser for this demo.", locationStatus: "Location Status", feedbackStoredDemo: "Feedback is stored locally in this browser for this demo.", bookingNotificationTitle: "Booking Confirmed", bookingNotificationText: "Your slot has been successfully booked.", reachCentre: "Please reach the procurement centre at your selected time.", saleNotificationTitle: "Crop Sale & Payment Completed", saleNotificationText: "Your crop sale has been completed and payment has been successfully processed.", quantityLabel: "Quantity", paymentAmount: "Payment Amount", paid: "Paid",
+    feedback:"Feedback",feedbackTitle:"Share Your Feedback",feedbackDesc:"Tell us how Procura can serve you better.",rating:"Rating",comments:"Comments",feedbackCategory:"Category (Optional)",selectCategory:"Select a category",categoryBooking:"Booking",categoryPayment:"Payment",categoryCentre:"Procurement Centre",categoryApp:"Website / App",categoryOther:"Other",feedbackPlaceholder:"Write your feedback here...",feedbackSuccess:"Thank you! Your feedback has been submitted.",callAdmin:"Call Admin",callAdminDesc:"Contact the procurement admin when you need help.",adminPhoneNotConfigured:"Admin phone number is not configured yet. Add the real number in ADMIN_PHONE_NUMBER.",callConfirmation:"Call the procurement admin now?",cropPrices:"Rajasthan Crop Prices",cropPricesDesc:"Farmer-friendly Rajasthan crop price and trend information.",demoPriceLabel:"Demo / Sample Data",demoValue:"Demo value",sampleMarket:"Rajasthan sample",demoDate:"Demo",medium:"Medium",priceSourceNote:"These are sample frontend values, not live market prices. Replace them with a verified API before using them as current prices.",priceUnit:"Price Unit",market:"Market",priceDate:"Price Date",trend:"Trend",trendingCrops:"Trending Crops in Rajasthan",highDemand:"High Selling Demand",priceMovement:"Notable Price Movement",up:"Up",down:"Down",stable:"Stable",adminGpsTitle:"Admin Location",adminGpsDesc:"Use your browser location when relevant for centre operations.",adminLocationNote:"Location is requested only when you press the button and is used in this browser for this demo.",locationStatus:"Location Status",feedbackStoredDemo:"Feedback is stored locally in this browser for this demo.",bookingNotificationTitle:"Booking Confirmed",bookingNotificationText:"Your slot has been successfully booked.",reachCentre:"Please reach the procurement centre at your selected time.",saleNotificationTitle:"Crop Sale & Payment Completed",saleNotificationText:"Your crop sale has been completed and payment has been successfully processed.",quantityLabel:"Quantity",paymentAmount:"Payment Amount",paid:"Paid",unread:"New",noNewNotifications:"No new generated notifications yet.",markPaid:"Mark as Paid",barley:"Barley",guar:"Guar",gpsTitle: "Nearby Procurement Centres", gpsDesc: "Use your phone's location to see how far you are from each procurement centre.", locateMe: "Locate Me", locating: "Finding your location...", locationReady: "Your location is ready.", locationDenied: "Location permission was denied. Allow location access in your browser and try again.", locationUnavailable: "Your location could not be found. Check GPS/location settings and try again.", locationTimeout: "Location request timed out. Move to an open area and try again.", distanceFromYou: "Distance from you", openMaps: "Navigate", coordinates: "Your coordinates", nearbyCentre: "Nearest procurement centre", kmAway: "km away", locationNote: "Your location is used only in this browser to calculate distances. It is not saved by this demo.", gpsNotSupported: "Geolocation is not supported by this browser.", cropAdvisory: "Crop Selling Advisory", cropAdvisoryDesc: "Indicative Rajasthan seasonal selling-demand guidance. Use it with local market prices and procurement requirements.", recommendedCrop: "Recommended Crop", demandScore: "Seasonal Demand Score", bestSellingWindow: "Best Selling Window", advisoryNote: "This is an indicative seasonal advisory, not live mandi prices or a guaranteed selling price.", wheat: "Wheat", mustard: "Mustard", bajra: "Bajra", maize: "Maize", gram: "Gram", barley: "Barley", guar: "Guar", score: "Score (1–5)", monthJan: "January", monthFeb: "February", monthMar: "March", monthApr: "April", monthMay: "May", monthJun: "June", monthJul: "July", monthAug: "August", monthSep: "September", monthOct: "October", monthNov: "November", monthDec: "December", advisoryGraph: "Rajasthan Crop Selling Demand by Month", advisoryGraphDesc: "Higher score means a stronger seasonal selling/procurement window in this demo advisory." , location: "Location", gps: "GPS / Nearby Centres", useLocation: "Use GPS to find nearby centres", distance: "Distance", noLocationYet: "Press Locate Me to calculate distances.", unread: "New", noNewNotifications: "No new generated notifications yet.", markPaid: "Mark as Paid",
     normalBooking: "Normal Booking",
     priorityBooking: "Priority Booking",
     bookingType: "Booking Type",
@@ -368,6 +368,7 @@ const extraTranslations = {
     createCentre: "Add New Centre", centreName: "Centre Name", centreNamePlaceholder: "Enter centre name",
     centreLocationPlaceholder: "Enter centre location", centreCapacityPlaceholder: "Enter total capacity",
     centreCreated: "Centre created successfully.", centreCreateFailed: "Could not create the centre.",
+    centreCapacityHint: "Capacity is set by adding slots to this centre after it's created.",
     submitting: "Submitting...",
     createSlot: "Add New Slot", slotCreated: "Slot created successfully.", slotCreateFailed: "Could not create the slot.",
     registrationSubtitle: "Create your farmer account to start booking procurement tokens.",
@@ -391,11 +392,11 @@ const extraTranslations = {
     demoDataNote: "यह डेमो डेटा है। बाद में इसे वास्तविक बैकएंड/API से जोड़ा जा सकता है।",
     activeBooking: "सक्रिय बुकिंग", cancelled: "रद्द", cancelAction: "यह बुकिंग रद्द करें",
     videoUnavailable: "वीडियो फ़ाइल जोड़ने के बाद यहाँ प्रदर्शन वीडियो दिखाई देगा।",
-    howToUseEnglish: "How to Use Agro Vision", howToUseHindi: "एग्रो विज़न का उपयोग कैसे करें",
+    howToUseEnglish: "How to Use Procura", howToUseHindi: "प्रोक्यूरा का उपयोग कैसे करें",
     videoEnglish: "अंग्रेज़ी प्रदर्शन", videoHindi: "हिंदी प्रदर्शन",
-    watchDemo: "एग्रो विज़न का उपयोग सीखने के लिए यह आसान प्रदर्शन देखें।",
-    systemReady: "सरल, स्पष्ट और किसान-अनुकूल", feedback: "प्रतिक्रिया", feedbackTitle: "अपनी प्रतिक्रिया दें", feedbackDesc: "बताएं कि एग्रो विज़न आपकी बेहतर सेवा कैसे कर सकता है।", rating: "रेटिंग", comments: "टिप्पणी", feedbackCategory: "श्रेणी (वैकल्पिक)", selectCategory: "श्रेणी चुनें", categoryBooking: "बुकिंग", categoryPayment: "भुगतान", categoryCentre: "खरीद केंद्र", categoryApp: "वेबसाइट / ऐप", categoryOther: "अन्य", feedbackPlaceholder: "अपनी प्रतिक्रिया यहाँ लिखें...", feedbackSuccess: "धन्यवाद! आपकी प्रतिक्रिया जमा हो गई है।", callAdmin: "एडमिन को कॉल करें", callAdminDesc: "मदद की आवश्यकता होने पर खरीद केंद्र के एडमिन से संपर्क करें।", adminPhoneNotConfigured: "एडमिन का फोन नंबर अभी सेट नहीं है। ADMIN_PHONE_NUMBER में वास्तविक नंबर जोड़ें।", callConfirmation: "क्या आप अभी खरीद केंद्र के एडमिन को कॉल करना चाहते हैं?", cropPrices: "राजस्थान फसल भाव", cropPricesDesc: "किसानों के लिए राजस्थान की फसलों के भाव और रुझान की जानकारी।", demoPriceLabel: "डेमो / नमूना डेटा", priceSourceNote: "ये फ्रंटएंड के नमूना मान हैं, लाइव बाजार भाव नहीं। इन्हें वर्तमान भाव के रूप में उपयोग करने से पहले सत्यापित API से जोड़ें।", priceUnit: "भाव की इकाई", market: "बाजार", priceDate: "भाव दिनांक", trend: "रुझान", trendingCrops: "राजस्थान में लोकप्रिय फसलें", highDemand: "उच्च बिक्री मांग", priceMovement: "उल्लेखनीय भाव बदलाव", up: "बढ़त", down: "गिरावट", stable: "स्थिर", adminGpsTitle: "एडमिन लोकेशन", adminGpsDesc: "केंद्र संचालन के लिए आवश्यक होने पर ब्राउज़र लोकेशन का उपयोग करें।", adminLocationNote: "लोकेशन केवल बटन दबाने पर मांगी जाती है और इस डेमो में इसी ब्राउज़र में उपयोग होती है।", locationStatus: "लोकेशन स्थिति", feedbackStoredDemo: "इस डेमो में प्रतिक्रिया इसी ब्राउज़र में स्थानीय रूप से सेव होती है।", bookingNotificationTitle: "बुकिंग की पुष्टि", bookingNotificationText: "आपका स्लॉट सफलतापूर्वक बुक हो गया है।", reachCentre: "कृपया चुने गए समय पर खरीद केंद्र पहुंचें।", saleNotificationTitle: "फसल बिक्री और भुगतान पूर्ण", saleNotificationText: "आपकी फसल बिक्री पूरी हो गई है और भुगतान सफलतापूर्वक संसाधित हो गया है।", quantityLabel: "मात्रा", paymentAmount: "भुगतान राशि", paid: "भुगतान हो गया",
-    feedback:"प्रतिक्रिया",feedbackTitle:"अपनी प्रतिक्रिया दें",feedbackDesc:"बताएं कि एग्रो विज़न आपकी बेहतर सेवा कैसे कर सकता है।",rating:"रेटिंग",comments:"टिप्पणी",feedbackCategory:"श्रेणी (वैकल्पिक)",selectCategory:"श्रेणी चुनें",categoryBooking:"बुकिंग",categoryPayment:"भुगतान",categoryCentre:"खरीद केंद्र",categoryApp:"वेबसाइट / ऐप",categoryOther:"अन्य",feedbackPlaceholder:"अपनी प्रतिक्रिया यहाँ लिखें...",feedbackSuccess:"धन्यवाद! आपकी प्रतिक्रिया जमा हो गई है।",callAdmin:"एडमिन को कॉल करें",callAdminDesc:"मदद की आवश्यकता होने पर खरीद केंद्र के एडमिन से संपर्क करें।",adminPhoneNotConfigured:"एडमिन का फोन नंबर अभी सेट नहीं है। ADMIN_PHONE_NUMBER में वास्तविक नंबर जोड़ें।",callConfirmation:"क्या आप अभी खरीद केंद्र के एडमिन को कॉल करना चाहते हैं?",cropPrices:"राजस्थान फसल भाव",cropPricesDesc:"किसानों के लिए राजस्थान की फसलों के भाव और रुझान की जानकारी।",demoPriceLabel:"डेमो / नमूना डेटा",demoValue:"डेमो मान",sampleMarket:"राजस्थान नमूना",demoDate:"डेमो",medium:"मध्यम",priceSourceNote:"ये फ्रंटएंड के नमूना मान हैं, लाइव बाजार भाव नहीं। इन्हें वर्तमान भाव के रूप में उपयोग करने से पहले सत्यापित API से जोड़ें।",priceUnit:"भाव की इकाई",market:"बाजार",priceDate:"भाव दिनांक",trend:"रुझान",trendingCrops:"राजस्थान में लोकप्रिय फसलें",highDemand:"उच्च बिक्री मांग",priceMovement:"उल्लेखनीय भाव बदलाव",up:"बढ़त",down:"गिरावट",stable:"स्थिर",adminGpsTitle:"एडमिन लोकेशन",adminGpsDesc:"केंद्र संचालन के लिए आवश्यक होने पर ब्राउज़र लोकेशन का उपयोग करें।",adminLocationNote:"लोकेशन केवल बटन दबाने पर मांगी जाती है और इस डेमो में इसी ब्राउज़र में उपयोग होती है।",locationStatus:"लोकेशन स्थिति",feedbackStoredDemo:"इस डेमो में प्रतिक्रिया इसी ब्राउज़र में स्थानीय रूप से सेव होती है।",bookingNotificationTitle:"बुकिंग की पुष्टि",bookingNotificationText:"आपका स्लॉट सफलतापूर्वक बुक हो गया है।",reachCentre:"कृपया चुने गए समय पर खरीद केंद्र पहुंचें।",saleNotificationTitle:"फसल बिक्री और भुगतान पूर्ण",saleNotificationText:"आपकी फसल बिक्री पूरी हो गई है और भुगतान सफलतापूर्वक संसाधित हो गया है।",quantityLabel:"मात्रा",paymentAmount:"भुगतान राशि",paid:"भुगतान हो गया",unread:"नई",noNewNotifications:"अभी कोई नई जनरेट की गई सूचना नहीं है।",markPaid:"भुगतान पूर्ण करें",barley:"जौ",guar:"ग्वार",gpsTitle: "नज़दीकी खरीद केंद्र", gpsDesc: "अपने मोबाइल की लोकेशन का उपयोग करके देखें कि आप प्रत्येक खरीद केंद्र से कितनी दूर हैं।", locateMe: "मेरी लोकेशन खोजें", locating: "लोकेशन खोजी जा रही है...", locationReady: "आपकी लोकेशन मिल गई है।", locationDenied: "लोकेशन की अनुमति नहीं मिली। ब्राउज़र में लोकेशन की अनुमति दें और फिर प्रयास करें।", locationUnavailable: "आपकी लोकेशन नहीं मिल सकी। GPS/लोकेशन सेटिंग जाँचें और फिर प्रयास करें।", locationTimeout: "लोकेशन खोजने में समय लग गया। खुले स्थान पर जाकर फिर प्रयास करें।", distanceFromYou: "आपसे दूरी", openMaps: "रास्ता देखें", coordinates: "आपकी लोकेशन", nearbyCentre: "सबसे नज़दीकी खरीद केंद्र", kmAway: "किमी दूर", locationNote: "आपकी लोकेशन का उपयोग केवल इसी ब्राउज़र में दूरी निकालने के लिए होता है। इस डेमो में इसे सेव नहीं किया जाता।", gpsNotSupported: "इस ब्राउज़र में लोकेशन सुविधा उपलब्ध नहीं है।", cropAdvisory: "फसल बिक्री सलाह", cropAdvisoryDesc: "राजस्थान के मौसमी बिक्री/खरीद रुझान पर आधारित संकेतात्मक सलाह। इसे स्थानीय बाजार भाव और खरीद आवश्यकताओं के साथ देखें।", recommendedCrop: "सुझाई गई फसल", demandScore: "मौसमी मांग स्कोर", bestSellingWindow: "बेचने का बेहतर समय", advisoryNote: "यह संकेतात्मक मौसमी सलाह है, लाइव मंडी भाव या निश्चित बिक्री मूल्य नहीं।", wheat: "गेहूं", mustard: "सरसों", bajra: "बाजरा", maize: "मक्का", gram: "चना", barley: "जौ", guar: "ग्वार", score: "स्कोर (1–5)", monthJan: "जनवरी", monthFeb: "फरवरी", monthMar: "मार्च", monthApr: "अप्रैल", monthMay: "मई", monthJun: "जून", monthJul: "जुलाई", monthAug: "अगस्त", monthSep: "सितंबर", monthOct: "अक्टूबर", monthNov: "नवंबर", monthDec: "दिसंबर", advisoryGraph: "राजस्थान में महीने के अनुसार फसल बिक्री मांग", advisoryGraphDesc: "अधिक स्कोर इस डेमो सलाह में बेहतर मौसमी बिक्री/खरीद समय को दर्शाता है।", location: "स्थान", gps: "GPS / नज़दीकी केंद्र", useLocation: "नज़दीकी केंद्र खोजें", distance: "दूरी", noLocationYet: "दूरी निकालने के लिए ‘मेरी लोकेशन खोजें’ दबाएँ।", unread: "नई", noNewNotifications: "अभी कोई नई जनरेट की गई सूचना नहीं है।", markPaid: "भुगतान पूर्ण करें",
+    watchDemo: "प्रोक्यूरा का उपयोग सीखने के लिए यह आसान प्रदर्शन देखें।",
+    systemReady: "सरल, स्पष्ट और किसान-अनुकूल", feedback: "प्रतिक्रिया", feedbackTitle: "अपनी प्रतिक्रिया दें", feedbackDesc: "बताएं कि प्रोक्यूरा आपकी बेहतर सेवा कैसे कर सकता है।", rating: "रेटिंग", comments: "टिप्पणी", feedbackCategory: "श्रेणी (वैकल्पिक)", selectCategory: "श्रेणी चुनें", categoryBooking: "बुकिंग", categoryPayment: "भुगतान", categoryCentre: "खरीद केंद्र", categoryApp: "वेबसाइट / ऐप", categoryOther: "अन्य", feedbackPlaceholder: "अपनी प्रतिक्रिया यहाँ लिखें...", feedbackSuccess: "धन्यवाद! आपकी प्रतिक्रिया जमा हो गई है।", callAdmin: "एडमिन को कॉल करें", callAdminDesc: "मदद की आवश्यकता होने पर खरीद केंद्र के एडमिन से संपर्क करें।", adminPhoneNotConfigured: "एडमिन का फोन नंबर अभी सेट नहीं है। ADMIN_PHONE_NUMBER में वास्तविक नंबर जोड़ें।", callConfirmation: "क्या आप अभी खरीद केंद्र के एडमिन को कॉल करना चाहते हैं?", cropPrices: "राजस्थान फसल भाव", cropPricesDesc: "किसानों के लिए राजस्थान की फसलों के भाव और रुझान की जानकारी।", demoPriceLabel: "डेमो / नमूना डेटा", priceSourceNote: "ये फ्रंटएंड के नमूना मान हैं, लाइव बाजार भाव नहीं। इन्हें वर्तमान भाव के रूप में उपयोग करने से पहले सत्यापित API से जोड़ें।", priceUnit: "भाव की इकाई", market: "बाजार", priceDate: "भाव दिनांक", trend: "रुझान", trendingCrops: "राजस्थान में लोकप्रिय फसलें", highDemand: "उच्च बिक्री मांग", priceMovement: "उल्लेखनीय भाव बदलाव", up: "बढ़त", down: "गिरावट", stable: "स्थिर", adminGpsTitle: "एडमिन लोकेशन", adminGpsDesc: "केंद्र संचालन के लिए आवश्यक होने पर ब्राउज़र लोकेशन का उपयोग करें।", adminLocationNote: "लोकेशन केवल बटन दबाने पर मांगी जाती है और इस डेमो में इसी ब्राउज़र में उपयोग होती है।", locationStatus: "लोकेशन स्थिति", feedbackStoredDemo: "इस डेमो में प्रतिक्रिया इसी ब्राउज़र में स्थानीय रूप से सेव होती है।", bookingNotificationTitle: "बुकिंग की पुष्टि", bookingNotificationText: "आपका स्लॉट सफलतापूर्वक बुक हो गया है।", reachCentre: "कृपया चुने गए समय पर खरीद केंद्र पहुंचें।", saleNotificationTitle: "फसल बिक्री और भुगतान पूर्ण", saleNotificationText: "आपकी फसल बिक्री पूरी हो गई है और भुगतान सफलतापूर्वक संसाधित हो गया है।", quantityLabel: "मात्रा", paymentAmount: "भुगतान राशि", paid: "भुगतान हो गया",
+    feedback:"प्रतिक्रिया",feedbackTitle:"अपनी प्रतिक्रिया दें",feedbackDesc:"बताएं कि प्रोक्यूरा आपकी बेहतर सेवा कैसे कर सकता है।",rating:"रेटिंग",comments:"टिप्पणी",feedbackCategory:"श्रेणी (वैकल्पिक)",selectCategory:"श्रेणी चुनें",categoryBooking:"बुकिंग",categoryPayment:"भुगतान",categoryCentre:"खरीद केंद्र",categoryApp:"वेबसाइट / ऐप",categoryOther:"अन्य",feedbackPlaceholder:"अपनी प्रतिक्रिया यहाँ लिखें...",feedbackSuccess:"धन्यवाद! आपकी प्रतिक्रिया जमा हो गई है।",callAdmin:"एडमिन को कॉल करें",callAdminDesc:"मदद की आवश्यकता होने पर खरीद केंद्र के एडमिन से संपर्क करें।",adminPhoneNotConfigured:"एडमिन का फोन नंबर अभी सेट नहीं है। ADMIN_PHONE_NUMBER में वास्तविक नंबर जोड़ें।",callConfirmation:"क्या आप अभी खरीद केंद्र के एडमिन को कॉल करना चाहते हैं?",cropPrices:"राजस्थान फसल भाव",cropPricesDesc:"किसानों के लिए राजस्थान की फसलों के भाव और रुझान की जानकारी।",demoPriceLabel:"डेमो / नमूना डेटा",demoValue:"डेमो मान",sampleMarket:"राजस्थान नमूना",demoDate:"डेमो",medium:"मध्यम",priceSourceNote:"ये फ्रंटएंड के नमूना मान हैं, लाइव बाजार भाव नहीं। इन्हें वर्तमान भाव के रूप में उपयोग करने से पहले सत्यापित API से जोड़ें।",priceUnit:"भाव की इकाई",market:"बाजार",priceDate:"भाव दिनांक",trend:"रुझान",trendingCrops:"राजस्थान में लोकप्रिय फसलें",highDemand:"उच्च बिक्री मांग",priceMovement:"उल्लेखनीय भाव बदलाव",up:"बढ़त",down:"गिरावट",stable:"स्थिर",adminGpsTitle:"एडमिन लोकेशन",adminGpsDesc:"केंद्र संचालन के लिए आवश्यक होने पर ब्राउज़र लोकेशन का उपयोग करें।",adminLocationNote:"लोकेशन केवल बटन दबाने पर मांगी जाती है और इस डेमो में इसी ब्राउज़र में उपयोग होती है।",locationStatus:"लोकेशन स्थिति",feedbackStoredDemo:"इस डेमो में प्रतिक्रिया इसी ब्राउज़र में स्थानीय रूप से सेव होती है।",bookingNotificationTitle:"बुकिंग की पुष्टि",bookingNotificationText:"आपका स्लॉट सफलतापूर्वक बुक हो गया है।",reachCentre:"कृपया चुने गए समय पर खरीद केंद्र पहुंचें।",saleNotificationTitle:"फसल बिक्री और भुगतान पूर्ण",saleNotificationText:"आपकी फसल बिक्री पूरी हो गई है और भुगतान सफलतापूर्वक संसाधित हो गया है।",quantityLabel:"मात्रा",paymentAmount:"भुगतान राशि",paid:"भुगतान हो गया",unread:"नई",noNewNotifications:"अभी कोई नई जनरेट की गई सूचना नहीं है।",markPaid:"भुगतान पूर्ण करें",barley:"जौ",guar:"ग्वार",gpsTitle: "नज़दीकी खरीद केंद्र", gpsDesc: "अपने मोबाइल की लोकेशन का उपयोग करके देखें कि आप प्रत्येक खरीद केंद्र से कितनी दूर हैं।", locateMe: "मेरी लोकेशन खोजें", locating: "लोकेशन खोजी जा रही है...", locationReady: "आपकी लोकेशन मिल गई है।", locationDenied: "लोकेशन की अनुमति नहीं मिली। ब्राउज़र में लोकेशन की अनुमति दें और फिर प्रयास करें।", locationUnavailable: "आपकी लोकेशन नहीं मिल सकी। GPS/लोकेशन सेटिंग जाँचें और फिर प्रयास करें।", locationTimeout: "लोकेशन खोजने में समय लग गया। खुले स्थान पर जाकर फिर प्रयास करें।", distanceFromYou: "आपसे दूरी", openMaps: "रास्ता देखें", coordinates: "आपकी लोकेशन", nearbyCentre: "सबसे नज़दीकी खरीद केंद्र", kmAway: "किमी दूर", locationNote: "आपकी लोकेशन का उपयोग केवल इसी ब्राउज़र में दूरी निकालने के लिए होता है। इस डेमो में इसे सेव नहीं किया जाता।", gpsNotSupported: "इस ब्राउज़र में लोकेशन सुविधा उपलब्ध नहीं है।", cropAdvisory: "फसल बिक्री सलाह", cropAdvisoryDesc: "राजस्थान के मौसमी बिक्री/खरीद रुझान पर आधारित संकेतात्मक सलाह। इसे स्थानीय बाजार भाव और खरीद आवश्यकताओं के साथ देखें।", recommendedCrop: "सुझाई गई फसल", demandScore: "मौसमी मांग स्कोर", bestSellingWindow: "बेचने का बेहतर समय", advisoryNote: "यह संकेतात्मक मौसमी सलाह है, लाइव मंडी भाव या निश्चित बिक्री मूल्य नहीं।", wheat: "गेहूं", mustard: "सरसों", bajra: "बाजरा", maize: "मक्का", gram: "चना", barley: "जौ", guar: "ग्वार", score: "स्कोर (1–5)", monthJan: "जनवरी", monthFeb: "फरवरी", monthMar: "मार्च", monthApr: "अप्रैल", monthMay: "मई", monthJun: "जून", monthJul: "जुलाई", monthAug: "अगस्त", monthSep: "सितंबर", monthOct: "अक्टूबर", monthNov: "नवंबर", monthDec: "दिसंबर", advisoryGraph: "राजस्थान में महीने के अनुसार फसल बिक्री मांग", advisoryGraphDesc: "अधिक स्कोर इस डेमो सलाह में बेहतर मौसमी बिक्री/खरीद समय को दर्शाता है।", location: "स्थान", gps: "GPS / नज़दीकी केंद्र", useLocation: "नज़दीकी केंद्र खोजें", distance: "दूरी", noLocationYet: "दूरी निकालने के लिए ‘मेरी लोकेशन खोजें’ दबाएँ।", unread: "नई", noNewNotifications: "अभी कोई नई जनरेट की गई सूचना नहीं है।", markPaid: "भुगतान पूर्ण करें",
     normalBooking: "सामान्य बुकिंग",
     priorityBooking: "प्राथमिकता बुकिंग",
     bookingType: "बुकिंग प्रकार",
@@ -462,6 +463,7 @@ const extraTranslations = {
     createCentre: "नया केंद्र जोड़ें", centreName: "केंद्र का नाम", centreNamePlaceholder: "केंद्र का नाम दर्ज करें",
     centreLocationPlaceholder: "केंद्र का स्थान दर्ज करें", centreCapacityPlaceholder: "कुल क्षमता दर्ज करें",
     centreCreated: "केंद्र सफलतापूर्वक बनाया गया।", centreCreateFailed: "केंद्र नहीं बनाया जा सका।",
+    centreCapacityHint: "केंद्र बनाने के बाद स्लॉट जोड़कर क्षमता निर्धारित की जाती है।",
     submitting: "जमा हो रहा है...",
     createSlot: "नया स्लॉट जोड़ें", slotCreated: "स्लॉट सफलतापूर्वक बनाया गया।", slotCreateFailed: "स्लॉट नहीं बनाया जा सका।",
     registrationSubtitle: "खरीद टोकन बुक करना शुरू करने के लिए अपना किसान खाता बनाएं।",
@@ -593,18 +595,9 @@ function App(){
       setPayments(paymentData || []);
       setProcurements(procurementData || []);
     } else {
-      const [adminBookings, adminFarmers, adminStats] = await Promise.all([
-        apiRequest("/admin/bookings"), apiRequest("/admin/farmers"), apiRequest("/admin/stats")
-      ]);
-      const mappedBookings = (adminBookings || []).map(b => ({
-        ...b, token: `B-${b.booking_id}`, bookingId: b.booking_id, farmerId: b.user_id,
-        farmer: b.farmer_name, mobile: b.farmer_phone, centre: b.centre_name,
-        time: b.time_window, queue: b.queue_position || "—", date: b.date,
-        crop: b.crop_type, quantity: b.quantity, bookingType: b.pool_type || "general"
-      }));
-      setTokens(mappedBookings);
+      const [adminBookings, adminFarmers] = await Promise.all([apiRequest("/admin/bookings"), apiRequest("/admin/farmers")]);
+      setTokens(Array.isArray(adminBookings) ? adminBookings : []);
       if (Array.isArray(adminFarmers)) setFarmers(adminFarmers.map(f=>({...f,id:f.user_id ?? f.id,mobile:f.phone ?? f.mobile,status:f.status || "Active"})));
-      setAdminStats(adminStats || null);
     }
   };
   const addNotification=(notification)=>setNotifications(prev=>[{id:`N-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,read:false,createdAt:new Date().toISOString(),...notification},...prev]);
@@ -650,7 +643,7 @@ function App(){
 
   const addBookingRequest=async (booking)=>{
     try {
-      const payload={user_id:booking.farmerId,slot_id:booking.slotId,crop_type:booking.crop,quantity:Number(booking.quantity)};
+      const payload={user_id:booking.farmerId,slot_id:booking.slotId,crop_type:booking.crop,quantity:Number(booking.quantity),unit:booking.unit||"Quintal"};
       const data=await apiRequest("/book",{method:"POST",body:JSON.stringify(payload)});
       if (data.waitlist_position != null || /waitlist|full/i.test(data.message||"")) {
         const record={...booking,id:`W-${Date.now()}`,status:"Waiting",queuePosition:data.waitlist_position};
@@ -701,7 +694,7 @@ function App(){
         <div className="role-switch"><span className="role-badge">{role==="farmer"?"👨‍🌾":"👨‍💼"} {role==="farmer"?(language==="hi"?"किसान पोर्टल":"Farmer Portal"):(language==="hi"?"एडमिन पोर्टल":"Admin Portal")}</span><button onClick={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);setRole("farmer");}}>↪ {t("logout")}</button></div>
       </div>
     </header>
-    {role==="farmer"?<FarmerApp farmers={farmers} centres={centres} slots={slots} tokens={tokens} waitingList={waitingList} currentFarmerId={currentFarmerId} onBookRequest={addBookingRequest} onCancelToken={cancelToken} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} language={language} notifications={notifications} markNotificationRead={markNotificationRead} onCallAdmin={()=>{}}/>:role==="operator"?<OperatorApp tokens={tokens} farmers={farmers} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t}/>:<AdminApp farmers={farmers} centres={centres} tokens={tokens} slots={slots} setSlots={setSlots} waitingList={waitingList} setCentres={setCentres} adminStats={adminStats} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} notifications={notifications} addSalePaymentNotification={addSalePaymentNotification}/>} 
+    {role==="farmer"?<FarmerApp farmers={farmers} centres={centres} slots={slots} tokens={tokens} waitingList={waitingList} currentFarmerId={currentFarmerId} onBookRequest={addBookingRequest} onCancelToken={cancelToken} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} language={language} notifications={notifications} markNotificationRead={markNotificationRead} onCallAdmin={()=>{}}/>:role==="operator"?<OperatorApp tokens={tokens} farmers={farmers} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t}/>:<AdminApp farmers={farmers} centres={centres} tokens={tokens} slots={slots} setSlots={setSlots} waitingList={waitingList} setCentres={setCentres} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} notifications={notifications} addSalePaymentNotification={addSalePaymentNotification}/>} 
   </div>;
 }
 
@@ -711,7 +704,7 @@ function FarmerApp({farmers,centres,slots,tokens,waitingList,currentFarmerId,onB
   return <div className="layout">
     <Sidebar title={t("farmerPortal")} items={[["dashboard",t("dashboard"),"🏠"],["gps",t("gps"),"📍"],["profile",t("profile"),"👨‍🌾"],["produce",t("produce"),"🌾"],["book",t("bookToken"),"🎫"],["queue",t("queue"),"🔎"],["payment",t("payment"),"💰"],["cancel",t("cancelBooking"),"✕"],["analysis",t("analysis"),"📈"],["reports",t("reports"),"📄"],["notifications",t("notifications"),"🔔"],["feedback",t("feedback"),"⭐"],["prices",t("cropPrices"),"📈"],["howto",t("howToUse"),"▶️"]]} page={page} setPage={setPage} onLogout={onLogout} t={t} />
     <main className="content">
-      {page==="gps"&&<FarmerGPS centres={centres} t={t} language={language}/>} {page==="dashboard"&&<FarmerDashboard farmer={currentFarmer} tokens={tokens} setPage={setPage} t={t}/>} {page==="profile"&&<Profile farmer={currentFarmer} t={t}/>} {page==="produce"&&<Produce farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} procurements={procurements} t={t}/>} {page==="book"&&<BookToken centres={centres} slots={slots} tokens={tokens} onBook={async data=>{const result=await onBookRequest({...data,farmer:currentFarmer.name,farmerId:currentFarmer.id});if(result?.type==="booked"||result?.type==="waiting"){setSelectedToken(result.record);setPage("queue");}else alert(t("bookingFailed"));}} t={t}/>} {page==="queue"&&<Queue tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} selected={selectedToken} onCancel={onCancelToken} t={t}/>} {page==="cancel"&&<CancelBooking tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} onCancel={onCancelToken} setPage={setPage} t={t}/>} {page==="payment"&&<Payment payments={payments} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} t={t}/>} {page==="analysis"&&<FarmerAnalysis farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} payments={payments} t={t}/>} {page==="reports"&&<FarmerReports farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} payments={payments} procurements={procurements} t={t}/>} {page==="notifications"&&<Notifications t={t} notifications={notifications} markNotificationRead={markNotificationRead} farmerId={currentFarmer.id}/>} {page==="feedback"&&<FarmerFeedback farmer={currentFarmer} t={t}/>} {page==="prices"&&<CropPrices t={t} farmer={currentFarmer}/>} {page==="howto"&&<HowToUse language={language} t={t}/>} 
+      {page==="gps"&&<FarmerGPS centres={centres} t={t} language={language}/>} {page==="dashboard"&&<FarmerDashboard farmer={currentFarmer} tokens={tokens} setPage={setPage} t={t}/>} {page==="profile"&&<Profile farmer={currentFarmer} t={t}/>} {page==="produce"&&<Produce farmer={currentFarmer} t={t}/>} {page==="book"&&<BookToken centres={centres} slots={slots} tokens={tokens} onBook={async data=>{const result=await onBookRequest({...data,farmer:currentFarmer.name,farmerId:currentFarmer.id});if(result?.type==="booked"||result?.type==="waiting"){setSelectedToken(result.record);setPage("queue");}else alert(t("bookingFailed"));}} t={t}/>} {page==="queue"&&<Queue tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} selected={selectedToken} onCancel={onCancelToken} t={t}/>} {page==="cancel"&&<CancelBooking tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} onCancel={onCancelToken} setPage={setPage} t={t}/>} {page==="payment"&&<Payment t={t}/>} {page==="analysis"&&<FarmerAnalysis farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} t={t}/>} {page==="reports"&&<FarmerReports farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} t={t}/>} {page==="notifications"&&<Notifications t={t} notifications={notifications} markNotificationRead={markNotificationRead} farmerId={currentFarmer.id}/>} {page==="feedback"&&<FarmerFeedback farmer={currentFarmer} t={t}/>} {page==="prices"&&<CropPrices t={t} farmer={currentFarmer}/>} {page==="howto"&&<HowToUse language={language} t={t}/>} 
     </main>
   </div>;
 }
@@ -908,7 +901,7 @@ function Register({language,setLanguage,onBack,onRegistered,t}){
     }
     setSubmitting(true);
     try{
-      const payload={name:form.name,phone:form.mobile,password:form.password,village:form.village,district:form.district,crop:form.crop,quantity:form.quantity};
+      const payload={name:form.name,phone:form.mobile,password:form.password,village:form.village,district:form.district,crop:form.crop,quantity:Number(form.quantity)};
       await apiRequest("/register",{method:"POST",body:JSON.stringify(payload)});
       await onRegistered(form.mobile,form.password);
     }catch(err){
@@ -936,7 +929,7 @@ function Register({language,setLanguage,onBack,onRegistered,t}){
           <div className="form-group"><label>{t("village")}</label><input value={form.village} onChange={update("village")} placeholder={t("village")}/></div>
           <div className="form-group"><label>{t("district")}</label><input value={form.district} onChange={update("district")} placeholder={t("district")}/></div>
           <div className="form-group"><label>{t("crop")}</label><select value={form.crop} onChange={update("crop")}>{bookingCrops.map(c=><option key={c} value={c}>{t(c.toLowerCase())}</option>)}</select></div>
-          <div className="form-group"><label>{t("quantity")}</label><input value={form.quantity} onChange={update("quantity")} placeholder={t("quantity")}/></div>
+          <div className="form-group"><label>{t("quantity")}</label><input type="number" min="1" value={form.quantity} onChange={update("quantity")} placeholder={t("quantity")}/></div>
           {error&&<div className="gps-error">⚠️ {error}</div>}
           <button type="submit" className="primary full" disabled={submitting}>{submitting?t("submitting"):t("createAccount")}</button>
         </form>
@@ -946,7 +939,163 @@ function Register({language,setLanguage,onBack,onRegistered,t}){
   </div>;
 }
 
-function HowToUse({t,language}){const isHindi=language==="hi";const videoSrc=isHindi?"/assets/videos/Agro_Vision_How_To_Use_Hindi_Demo.mp4":"/assets/videos/Agro_Vision_How_To_Use_English_Demo.mp4";return <section className="howto-page"><div className="page-head"><div><span className="eyebrow">▶ {t("howToUse")}</span><h1>{isHindi?t("howToUseHindi"):t("howToUseEnglish")}</h1><p>{t("watchDemo")}</p></div><div className="user-chip">🌱 {t("agroVision")}</div></div><div className="howto-card"><div className="video-header"><div><span className="eyebrow">{isHindi?t("videoHindi"):t("videoEnglish")}</span><h2>{isHindi?t("howToUseHindi"):t("howToUseEnglish")}</h2><p>{t("watchDemo")}</p></div><span className="video-language">{isHindi?t("hindi"):t("english")}</span></div><div className="video-frame"><video controls playsInline preload="metadata" src={videoSrc} onError={(e)=>{e.currentTarget.style.display="none";e.currentTarget.parentElement.classList.add("video-missing");}}><track kind="captions" /></video><div className="video-missing-message">▶️ {t("videoUnavailable")}</div></div><div className="video-note">🎧 {isHindi?t("videoHindiVoice"):t("watchDemo")} {t("videoSteps")}</div><div className="video-asset-note">ℹ️ {t("videoAssetNote")}</div></div></section>}
+const howToUseSteps = [
+  { icon: "🌐", titleHi: "भाषा चुनें", titleEn: "Choose your language",
+    textHi: "सबसे ऊपर, आप भाषा चुन सकते हैं। हिंदी या अंग्रेज़ी, जो भी आपको आसान लगे।",
+    textEn: "At the top of the screen, choose Hindi or English, whichever is easier for you." },
+  { icon: "📱", titleHi: "लॉगिन करें", titleEn: "Log in",
+    textHi: "अपना मोबाइल नंबर और पासवर्ड डालें। फिर, नीचे लॉगिन बटन दबाएं।",
+    textEn: "Enter your mobile number and password. Then press the Login button below." },
+  { icon: "📝", titleHi: "नया खाता बनाएं", titleEn: "Create a new account",
+    textHi: "अगर आपका खाता नहीं है, तो लॉगिन पेज पर नीचे नया खाता बनाएं पर दबाएं। अपना नाम, मोबाइल नंबर, गांव और पासवर्ड भरें।",
+    textEn: "If you don't have an account yet, tap Create Account on the login page. Fill in your name, mobile number, village, and password." },
+  { icon: "🏠", titleHi: "अपना होम पेज देखें", titleEn: "See your home screen",
+    textHi: "लॉगिन के बाद, आपको अपनी जानकारी दिखेगी। यहां आप अपनी बुकिंग और सूचनाएं देख सकते हैं।",
+    textEn: "After logging in, you'll see your home screen. Here you can view your bookings and notifications." },
+  { icon: "📍", titleHi: "खरीद केंद्र चुनें", titleEn: "Choose a procurement centre",
+    textHi: "टोकन बुक करने के लिए, सबसे पहले अपने पास का खरीद केंद्र चुनें।",
+    textEn: "To book a token, first choose the procurement centre nearest to you." },
+  { icon: "📅", titleHi: "तारीख और समय चुनें", titleEn: "Pick a date and time",
+    textHi: "फिर, वह तारीख और समय चुनें, जब आप अपनी फसल लेकर केंद्र जाना चाहते हैं।",
+    textEn: "Then pick the date and time you want to bring your crop to the centre." },
+  { icon: "🌾", titleHi: "फसल और मात्रा भरें", titleEn: "Enter crop and quantity",
+    textHi: "अपनी फसल का नाम चुनें। फिर मात्रा भरें, और किलो या क्विंटल में से इकाई चुनें।",
+    textEn: "Choose your crop's name. Then enter the quantity, and select Kg or Quintal as the unit." },
+  { icon: "🎫", titleHi: "टोकन नंबर पाएं", titleEn: "Get your token number",
+    textHi: "बुक करें बटन दबाने के बाद, आपको एक टोकन नंबर मिलेगा। इस नंबर को याद रखें, या इसका स्क्रीनशॉट ले लें।",
+    textEn: "After pressing the Book button, you'll get a token number. Remember this number, or take a screenshot." },
+  { icon: "🔔", titleHi: "सूचनाएं देखें", titleEn: "Check your notifications",
+    textHi: "आपकी बुकिंग की जानकारी सूचनाएं वाले पेज में दिखेगी। नई सूचना आने पर घंटी पर लाल निशान दिखेगा।",
+    textEn: "Updates about your booking appear on the Notifications page. A red mark on the bell means there's something new." },
+  { icon: "💰", titleHi: "भुगतान की स्थिति देखें", titleEn: "Check your payment status",
+    textHi: "आपकी फसल बिकने के बाद, पैसे का स्टेटस भुगतान वाले पेज में दिखेगा।",
+    textEn: "After your crop is sold, the payment status will appear on the Payment page." },
+  { icon: "✕", titleHi: "बुकिंग रद्द करना", titleEn: "Cancel a booking",
+    textHi: "अगर आपको बुकिंग रद्द करनी है, तो बुकिंग रद्द करें वाले पेज पर जाएं और रद्द करें बटन दबाएं।",
+    textEn: "If you need to cancel, go to the Cancel Booking page and press the Cancel button." },
+  { icon: "☎️", titleHi: "मदद चाहिए तो कॉल करें", titleEn: "Call for help",
+    textHi: "कोई भी समस्या हो, तो एडमिन को कॉल करें बटन दबाएं। केंद्र का स्टाफ आपकी मदद करेगा।",
+    textEn: "If you face any problem, press the Call Admin button. The centre staff will help you." }
+];
+
+function HowToUse({t,language}){
+  const isHindi = language==="hi";
+  const [currentStep,setCurrentStep] = useState(0);
+  const [isPlaying,setIsPlaying] = useState(false);
+  const [isAutoPlay,setIsAutoPlay] = useState(false);
+  const [speechSupported,setSpeechSupported] = useState(true);
+  const [voiceReady,setVoiceReady] = useState(false);
+  const voiceRef = useRef(null);
+  const autoPlayRef = useRef(false);
+
+  useEffect(()=>{
+    if(!("speechSynthesis" in window)){ setSpeechSupported(false); return; }
+    const pickVoice=()=>{
+      const voices = window.speechSynthesis.getVoices();
+      if(!voices.length) return;
+      const wantLang = isHindi ? "hi" : "en";
+      const exact = voices.find(v=>v.lang && v.lang.toLowerCase().startsWith(isHindi?"hi-in":"en-in"));
+      const langMatch = voices.find(v=>v.lang && v.lang.toLowerCase().startsWith(wantLang));
+      voiceRef.current = exact || langMatch || voices[0] || null;
+      setVoiceReady(true);
+    };
+    pickVoice();
+    window.speechSynthesis.onvoiceschanged = pickVoice;
+    return ()=>{ window.speechSynthesis.cancel(); };
+  },[isHindi]);
+
+  const speakStep = (index)=>{
+    if(!speechSupported) return;
+    window.speechSynthesis.cancel();
+    const step = howToUseSteps[index];
+    const text = isHindi ? step.textHi : step.textEn;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = isHindi ? "hi-IN" : "en-IN";
+    utterance.rate = 0.85;
+    utterance.pitch = 1;
+    if(voiceRef.current) utterance.voice = voiceRef.current;
+    utterance.onstart = ()=>setIsPlaying(true);
+    utterance.onend = ()=>{
+      setIsPlaying(false);
+      if(autoPlayRef.current && index < howToUseSteps.length-1){
+        setCurrentStep(index+1);
+        speakStep(index+1);
+      } else {
+        autoPlayRef.current = false;
+        setIsAutoPlay(false);
+      }
+    };
+    utterance.onerror = ()=>{ setIsPlaying(false); autoPlayRef.current=false; setIsAutoPlay(false); };
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handlePlayStep = ()=>{
+    autoPlayRef.current = false;
+    setIsAutoPlay(false);
+    speakStep(currentStep);
+  };
+
+  const handleStop = ()=>{
+    autoPlayRef.current = false;
+    setIsAutoPlay(false);
+    window.speechSynthesis.cancel();
+    setIsPlaying(false);
+  };
+
+  const handlePlayAll = ()=>{
+    autoPlayRef.current = true;
+    setIsAutoPlay(true);
+    setCurrentStep(0);
+    speakStep(0);
+  };
+
+  const goToStep = (index)=>{
+    handleStop();
+    setCurrentStep(index);
+  };
+
+  useEffect(()=>{ return ()=>{ if("speechSynthesis" in window) window.speechSynthesis.cancel(); }; },[]);
+
+  const step = howToUseSteps[currentStep];
+
+  return <section className="howto-page">
+    <div className="page-head">
+      <div><span className="eyebrow">▶ {t("howToUse")}</span><h1>{isHindi?t("howToUseHindi"):t("howToUseEnglish")}</h1><p>{t("watchDemo")}</p></div>
+      <div className="user-chip">🌱 {t("agroVision")}</div>
+    </div>
+
+    <Card>
+      <div className="howto-walkthrough">
+        <div className="howto-step-visual">
+          <div className="howto-step-icon">{step.icon}</div>
+          <div className="howto-step-number">{isHindi?`चरण ${currentStep+1} / ${howToUseSteps.length}`:`Step ${currentStep+1} of ${howToUseSteps.length}`}</div>
+        </div>
+        <h2 className="howto-step-title">{isHindi?step.titleHi:step.titleEn}</h2>
+        <p className="howto-step-text">{isHindi?step.textHi:step.textEn}</p>
+
+        {!speechSupported && <div className="video-missing-message">⚠️ {isHindi?"इस ब्राउज़र में आवाज़ में पढ़ने की सुविधा नहीं है। ऊपर लिखा हुआ पढ़ें।":"This browser can't read text aloud. Please read the text above."}</div>}
+
+        <div className="howto-controls">
+          <button type="button" className="howto-btn howto-btn-nav" disabled={currentStep===0} onClick={()=>goToStep(currentStep-1)}>◀ {isHindi?"पिछला":"Back"}</button>
+          {isPlaying
+            ? <button type="button" className="howto-btn howto-btn-play howto-btn-playing" onClick={handleStop}>⏸ {isHindi?"रोकें":"Pause"}</button>
+            : <button type="button" className="howto-btn howto-btn-play" onClick={handlePlayStep} disabled={!speechSupported}>🔊 {isHindi?"सुनें":"Listen"}</button>}
+          <button type="button" className="howto-btn howto-btn-nav" disabled={currentStep===howToUseSteps.length-1} onClick={()=>goToStep(currentStep+1)}>{isHindi?"अगला":"Next"} ▶</button>
+        </div>
+
+        <button type="button" className="howto-btn howto-btn-all" onClick={isAutoPlay?handleStop:handlePlayAll} disabled={!speechSupported}>
+          {isAutoPlay ? `⏸ ${isHindi?"रोकें":"Stop"}` : `🔊 ${isHindi?"सभी चरण सुनें":"Play All Steps"}`}
+        </button>
+
+        <div className="howto-dots">
+          {howToUseSteps.map((s,i)=>
+            <button key={i} type="button" aria-label={`Step ${i+1}`} className={"howto-dot"+(i===currentStep?" active":"")+(i<currentStep?" done":"")} onClick={()=>goToStep(i)}/>
+          )}
+        </div>
+      </div>
+    </Card>
+  </section>;
+}
 
 function Sidebar({title,items,page,setPage,onLogout,t}){
   return <aside className="sidebar">
@@ -960,13 +1109,12 @@ function FarmerDashboard({farmer,tokens,setPage,t}){const token=tokens.find(x=>x
 
 function Profile({farmer,t}){return <section><PageHead title={t("profile")} text={t("registeredFarmerInfo")}/><Card><InfoGrid data={{[t("farmerId")]:farmer.id,[t("name")]:farmer.name,[t("mobileNumber")]:farmer.mobile,[t("village")]:farmer.village,[t("district")]:farmer.district,[t("crop")]:farmer.crop,[t("quantity")]:farmer.quantity,[t("accountStatus")]:farmer.status}}/></Card></section>}
 
-function Produce({farmer,tokens=[],procurements=[],t}){return <section><PageHead title={t("produceDetails")} text={t("produceSubmitted")} t={t}/><Card><div className="table-wrap"><table><thead><tr><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("centre")}</th><th>{t("verification")}</th></tr></thead><tbody>{tokens.length?tokens.map(x=>{const p=procurements.find(y=>y.booking_id===x.bookingId);return <tr key={x.token}><td>{x.crop||"—"}</td><td>{x.quantity??"—"}</td><td>{x.centre||"—"}</td><td><span className={"badge "+(p?.final_status==="Completed"||x.status==="Processed"?"green":"yellow")}>{p?.final_status||x.status||t("pending")}</span></td></tr>}):<tr><td colSpan="4">{t("noPurchasingDetails")}</td></tr>}</tbody></table></div></Card></section>}
+function Produce({farmer,t}){return <section><PageHead title={t("produceDetails")} text={t("produceSubmitted")}/><Card><table><thead><tr><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("centre")}</th><th>{t("verification")}</th></tr></thead><tbody><tr><td>{farmer.crop}</td><td>{farmer.quantity}</td><td>Jaipur Central Procurement Centre</td><td><span className="badge green">{t("pending")}</span></td></tr></tbody></table></Card></section>}
 
 function getTodayDateString(){
   const d=new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
-function languageFallback(t,en,hi){ return t("__language") === "hi" ? hi : en; }
 function BookToken({centres,slots=[],tokens=[],onBook,t}){
   const [centre,setCentre]=useState("");
   const [date,setDate]=useState(getTodayDateString());
@@ -1028,7 +1176,7 @@ function BookToken({centres,slots=[],tokens=[],onBook,t}){
         {bookingType==="priority"&&<div className="priority-reason"><label>{t("priorityReason")}</label><select value={priorityReason} onChange={e=>setPriorityReason(e.target.value)}><option value="noSlot">{t("reasonNoSlot")}</option><option value="requiredTime">{t("reasonRequiredTime")}</option><option value="other">{t("reasonOther")}</option></select></div>}
         <label>{t("date")}</label><input type="date" value={date} min={getTodayDateString()} onChange={e=>setDate(e.target.value)}/>
         <label>{t("availableTimeSlot")}</label>
-        <div className="slots">{matchingSlots.map(x=><button type="button" className={selectedSlot?.id===x.id?"slot selected":"slot"} onClick={()=>setTime(x.time_window)} key={x.id}>{x.time_window}</button>)}{centre&&!matchingSlots.length&&<div className="data-note">No slot has been created for this date yet. Ask the admin to create a slot for this date.</div>}</div>
+        <div className="slots">{["09:00 AM","10:00 AM","11:00 AM","12:00 PM","02:00 PM"].map(x=><button type="button" className={time===x?"slot selected":"slot"} onClick={()=>setTime(x)} key={x}>{x}</button>)}</div>
         {selectedCentre&&<div className="booking-capacity-summary">
           <div><span>{t("availableCapacity")}</span><strong>{totalAvailable}</strong></div>
           <div><span>{t("normalAvailable")}</span><strong>{normalAvailable}</strong></div>
@@ -1054,7 +1202,7 @@ function Queue({tokens,selected,onCancel,t}){
     <div><span>{t("timeSlot")}</span><strong>{bookedToken.time}</strong></div>
   </div>{isWaiting?<div className="queue-actions"><span className="badge yellow">{t("waiting")}</span><span className="muted">{t("waitReason")}</span></div>:active?<div className="queue-actions"><span className="badge green">{bookedToken.bookingType==="priority"?t("priorityBooking"):t("normalBooking")}</span><button className="danger-button" onClick={()=>{if(window.confirm(t("cancelBookingConfirm")))onCancel(bookedToken.token)}}>✕ {t("cancelBooking")}</button></div>:<div className="queue-actions"><span className="badge red">{t("cancelled")}</span></div>}</Card>:<Card><Empty text={t("noToken")}/></Card>}<Card title={t("procurementTimeline")}><div className="horizontal-timeline">{["tokenConfirmed","inQueue","verification","procured","payment"].map((key,i)=><div className={i<2&&active&&!isWaiting?"hstep done":"hstep"} key={key}><span>{i<2&&active&&!isWaiting?"✓":i+1}</span><b>{t(key)}</b></div>)}</div></Card></section>
 }
-function Payment({payments=[],tokens=[],t}){const latest=payments[0];const pending=payments.filter(p=>p.payment_status!=="Completed").reduce((s,p)=>s+Number(p.amount||0),0);const completed=payments.filter(p=>p.payment_status==="Completed").reduce((s,p)=>s+Number(p.amount||0),0);return <section><PageHead title={t("paymentStatus")} text={t("trackPayment")} t={t}/><div className="stats"><Stat icon="💰" label={t("received")} value={`₹${completed.toLocaleString("en-IN")}`}/><Stat icon="⏳" label={t("pendingAmount")} value={`₹${pending.toLocaleString("en-IN")}`}/><Stat icon="🎫" label={t("transactions")} value={payments.length}/><Stat icon="📄" label={t("activeToken")} value={tokens.find(x=>x.status!=="Cancelled")?.token||"—"}/></div><Card><div className="table-wrap"><table><thead><tr><th>{t("tokenNumber")}</th><th>{t("amount")}</th><th>{t("paymentMethod")}</th><th>{t("status")}</th><th>{t("paymentDate")}</th></tr></thead><tbody>{payments.length?payments.map(p=>{const token=tokens.find(x=>Number(x.bookingId)===Number(p.booking_id));return <tr key={p.id}><td>{token?.token||`B-${p.booking_id}`}</td><td>₹{Number(p.amount||0).toLocaleString("en-IN")}</td><td>{p.payment_method||t("bankTransfer")}</td><td><span className={"badge "+(p.payment_status==="Completed"?"green":"yellow")}>{p.payment_status}</span></td><td>{p.paid_at||p.created_at||"—"}</td></tr>;}):<tr><td colSpan="5">{t("paymentUpdateAfter")}</td></tr>}</tbody></table></div>{latest&&<div className="data-note" style={{marginTop:14}}>Latest payment status: <b>{latest.payment_status}</b></div>}</Card></section>}
+function Payment({t}){return <section><PageHead title={t("paymentStatus")} text={t("trackPayment")}/><Card><div className="payment-card"><div className="big-icon">💰</div><h2>{t("paymentPending")}</h2><p>{t("paymentUpdateAfter")}</p><div className="info-row"><span>{t("expectedAmount")}</span><b>₹ 1,25,000</b></div><div className="info-row"><span>{t("paymentMethod")}</span><b>{t("bankTransfer")}</b></div></div></Card></section>}
 
 function Notifications({t,notifications=[],markNotificationRead,farmerId}){const mine=notifications.filter(n=>n.farmerId===farmerId);const render=n=>{const d=n.data||{};if(n.type==="booking")return <><b>{t("bookingNotificationTitle")}</b><small>{t("bookingNotificationText")} {t("tokenNumber")}: {d.token} • {t("procurementCentre")}: {d.centre} • {t("date")}: {d.date} • {t("time")}: {d.time} • {t("crop")}: {d.crop||"—"}</small><small>{t("reachCentre")}</small></>;return <><b>{t("saleNotificationTitle")}</b><small>{t("saleNotificationText")} • {t("crop")}: {d.crop} • {t("quantityLabel")}: {d.quantity} • {t("paymentAmount")}: {d.amount} • {t("procurementCentre")}: {d.centre} • {t("status")}: {t("paid")}</small></>};const staticNotes=[t("note1"),t("note2"),t("note3"),t("note4")];return <section><PageHead title={t("notificationTitle")} text={t("importantUpdates")}/><div className="notice-list">{mine.map(n=><button type="button" className={"notice notification-button "+(!n.read?"unread":"")} key={n.id} onClick={()=>markNotificationRead?.(n.id)}><span>🔔</span><div>{render(n)}{!n.read&&<em>{t("unread")}</em>}</div></button>)}{staticNotes.map((n,i)=><div className="notice" key={`static-${i}`}><span>🔔</span><div><b>{n}</b><small>{t("today")} • 10:{20+i*5} AM</small></div></div>)}{!mine.length&&<div className="data-note">ℹ️ {t("noNewNotifications")}</div>}</div></section>}
 
@@ -1146,8 +1294,23 @@ function CreateSlotForm({centres,setSlots,t}){
     setSubmitting(true);
     try{
       const payload={centre_id:form.centreId,date:form.date,time_window:form.timeWindow,general_capacity:Number(form.generalCapacity),priority_capacity:Number(form.priorityCapacity||0)};
-      const created=await apiRequest("/slots",{method:"POST",body:JSON.stringify(payload)});
-      setSlots(prev=>[...prev,created]);
+      const created=await apiRequest("/create-slot",{method:"POST",body:JSON.stringify(payload)});
+      const centre=centres.find(c=>String(c.id)===String(form.centreId));
+      setSlots(prev=>[...prev,{
+        id:created.slot_id,
+        centre_id:form.centreId,
+        centre_name:centre?.name,
+        centre_address:centre?.location,
+        latitude:centre?.lat,
+        longitude:centre?.lng,
+        date:form.date,
+        time_window:form.timeWindow,
+        general_capacity:Number(form.generalCapacity),
+        general_booked:0,
+        priority_capacity:Number(form.priorityCapacity||0),
+        priority_booked:0,
+        status:"Available"
+      }]);
       setMessage(t("slotCreated"));
       setTimeout(()=>setMessage(""),3000);
     }catch(err){
@@ -1173,20 +1336,18 @@ function CreateSlotForm({centres,setSlots,t}){
 function CentreCapacity({centres,tokens,waitingList,setCentres,slots,setSlots,t}){
   const [slotInputs,setSlotInputs]=useState({});
   const [slotMessage,setSlotMessage]=useState("");
-  const increaseSlots=async(centre)=>{
-    const amount=Number(slotInputs[centre.id]||0);
-    if(!Number.isInteger(amount)||amount<=0){setSlotMessage(t("invalidSlotIncrease"));return;}
-    const targetSlot=slots.find(s=>String(s.centre_id)===String(centre.id) && String(s.date)>=getTodayDateString()) || slots.find(s=>String(s.centre_id)===String(centre.id));
-    const payload={date:targetSlot?.date||getTodayDateString(),time_window:targetSlot?.time_window||"09:00 AM - 11:00 AM",additional_general:amount,additional_priority:0};
-    try{
-      const result=await apiRequest(`/centres/${centre.id}/increase-slots`,{method:"POST",body:JSON.stringify(payload)});
-      const updated=result.slot;
-      setSlots(prev=>{const exists=prev.some(s=>s.id===updated.id);return exists?prev.map(s=>s.id===updated.id?{...s,...updated,centre_name:centre.name}:s):[...prev,{...updated,centre_name:centre.name}]});
-      setCentres(prev=>prev.map(c=>c.id===centre.id?{...c,capacity:(c.capacity||0)+amount,today:c.today||0}:c));
-      setSlotInputs(prev=>({...prev,[centre.id]:""}));setSlotMessage(`${amount} ${t("slotsAdded")}`);setTimeout(()=>setSlotMessage(""),3000);
-    }catch(err){setSlotMessage(err.message||t("slotCreateFailed"));}
+  const increaseSlots=(centreId)=>{
+    const amount=Number(slotInputs[centreId]||0);
+    if(!Number.isInteger(amount)||amount<=0){
+      setSlotMessage(t("invalidSlotIncrease"));
+      return;
+    }
+    setCentres(prev=>prev.map(c=>c.id===centreId?{...c,capacity:c.capacity+amount,status:c.today>=c.capacity+amount?"Full":"Open"}:c));
+    setSlotInputs(prev=>({...prev,[centreId]:""}));
+    setSlotMessage(`${amount} ${t("slotsAdded")}`);
+    setTimeout(()=>setSlotMessage(""),3000);
   };
-  return <section><PageHead title={t("centreCapacityTitle")} text={t("centreCapacityDesc")} t={t}/>{setSlots&&<CreateSlotForm centres={centres} setSlots={setSlots} t={t}/>}{slotMessage&&<div className="success-banner">✓ {slotMessage}</div>}<div className="capacity-dashboard-grid">{centres.map(c=>{const s=getCentreStats(c,tokens);const isFull=s.availableSlots<=0;const waiting=waitingList.filter(x=>x.centreId===c.id&&x.status==="Waiting").length;return <Card key={c.id}><div className="centre-title"><div><span className="eyebrow">📍 {c.location}</span><h3>{c.name}</h3></div><span className={"badge "+(isFull?"red":"green")}>{isFull?t("fullStatus"):t("availableStatus")}</span></div><div className="capacity-meter"><div style={{width:`${Math.min(100,(s.occupied/c.capacity)*100)}%`}}/></div><div className="capacity-big"><strong>{s.occupied}</strong><span>/ {c.capacity} {t("occupiedSlots")}</span></div><div className="capacity-metrics"><div><small>{t("availableSlots")}</small><b>{s.availableSlots}</b></div><div><small>{t("normalAllocation")}</small><b>{s.normalAllocation}</b></div><div><small>{t("priorityAllocation")}</small><b>{s.priorityAllocation}</b></div><div><small>{t("waitingList")}</small><b>{waiting}</b></div></div><div className="allocation-row"><span>{t("normalBooking")}</span><b>{s.usedNormal} / {s.normalAllocation}</b></div><div className="allocation-row"><span>{t("priorityBooking")}</span><b>{s.usedPriority} / {s.priorityAllocation}</b></div><div className="capacity-increase-box"><div><b>{t("increaseSlots")}</b><small>{t("addSlotsHint")}</small></div><div className="capacity-increase-controls"><input type="number" min="1" step="1" inputMode="numeric" placeholder={t("addSlotsPlaceholder")} value={slotInputs[c.id]??""} onChange={e=>setSlotInputs(prev=>({...prev,[c.id]:e.target.value}))}/><button type="button" className="small-btn" onClick={()=>increaseSlots(c)}>{t("increaseSlots")}</button></div></div></Card>})}</div></section>
+  return <section><PageHead title={t("centreCapacityTitle")} text={t("centreCapacityDesc")} t={t}/>{setSlots&&<CreateSlotForm centres={centres} setSlots={setSlots} t={t}/>}{slotMessage&&<div className="success-banner">✓ {slotMessage}</div>}<div className="capacity-dashboard-grid">{centres.map(c=>{const s=getCentreStats(c,tokens);const isFull=s.availableSlots<=0;const waiting=waitingList.filter(x=>x.centreId===c.id&&x.status==="Waiting").length;return <Card key={c.id}><div className="centre-title"><div><span className="eyebrow">📍 {c.location}</span><h3>{c.name}</h3></div><span className={"badge "+(isFull?"red":"green")}>{isFull?t("fullStatus"):t("availableStatus")}</span></div><div className="capacity-meter"><div style={{width:`${Math.min(100,(s.occupied/c.capacity)*100)}%`}}/></div><div className="capacity-big"><strong>{s.occupied}</strong><span>/ {c.capacity} {t("occupiedSlots")}</span></div><div className="capacity-metrics"><div><small>{t("availableSlots")}</small><b>{s.availableSlots}</b></div><div><small>{t("normalAllocation")}</small><b>{s.normalAllocation}</b></div><div><small>{t("priorityAllocation")}</small><b>{s.priorityAllocation}</b></div><div><small>{t("waitingList")}</small><b>{waiting}</b></div></div><div className="allocation-row"><span>{t("normalBooking")}</span><b>{s.usedNormal} / {s.normalAllocation}</b></div><div className="allocation-row"><span>{t("priorityBooking")}</span><b>{s.usedPriority} / {s.priorityAllocation}</b></div><div className="capacity-increase-box"><div><b>{t("increaseSlots")}</b><small>{t("addSlotsHint")}</small></div><div className="capacity-increase-controls"><input type="number" min="1" step="1" inputMode="numeric" placeholder={t("addSlotsPlaceholder")} value={slotInputs[c.id]??""} onChange={e=>setSlotInputs(prev=>({...prev,[c.id]:e.target.value}))}/><button type="button" className="small-btn" onClick={()=>increaseSlots(c.id)}>{t("increaseSlots")}</button></div></div></Card>})}</div></section>
 }
 
 function AdminWaitingList({waitingList,t}){
@@ -1197,7 +1358,7 @@ function FarmerReports({farmer,tokens,t}){const cropData=cropSalesHistoryData[fa
 
 function OperatorApp({tokens=[],farmers=[],onLogout,t}){
   const [page,setPage]=useState("tokens");
-  return <div className="layout"><Sidebar title={t("operatorPortal")||"Operator Portal"} items={[["tokens",t("todaysTokens"),"🎫"],["verification",t("produceVerification"),"⚖️"]]} page={page} setPage={setPage} onLogout={onLogout} t={t}/><main className="content">{page==="tokens"&&<TokenManagement tokens={tokens} t={t}/>} {page==="verification"&&<Verification farmers={farmers} tokens={tokens} t={t}/>}</main></div>;
+  return <div className="layout"><Sidebar title={t("operatorPortal")||"Operator Portal"} items={[["tokens",t("todaysTokens"),"🎫"],["verification",t("produceVerification"),"⚖️"]]} page={page} setPage={setPage} onLogout={onLogout} t={t}/><main className="content">{page==="tokens"&&<TokenManagement tokens={tokens} t={t}/>} {page==="verification"&&<Verification farmers={farmers} t={t}/>}</main></div>;
 }
 
 function AdminApp({
@@ -1210,8 +1371,7 @@ function AdminApp({
   setCentres,
   onLogout,
   t,
-  addSalePaymentNotification,
-  adminStats
+  addSalePaymentNotification
 }) {
 
   const [page, setPage] = useState("dashboard");
@@ -1283,7 +1443,7 @@ function AdminApp({
           />
         }
 
-        {page === "payments" && <AdminPayments t={t} tokens={tokens}/>}
+        {page === "payments" && <AdminPayments t={t} onPaymentCompleted={addSalePaymentNotification}/>}
 
         {page === "capacity" && <CentreCapacity centres={centres} tokens={tokens} waitingList={waitingList} setCentres={setCentres} slots={slots} setSlots={setSlots} t={t}/>}
         {page === "waiting" && <AdminWaitingList waitingList={waitingList} t={t}/>}
@@ -1299,15 +1459,12 @@ function AdminApp({
   );
 }
 
-function AdminDashboard({farmers,centres,tokens,stats,t}){
-  const completed=stats?.status_breakdown?.filter(x=>x.status==="Processed").reduce((a,x)=>a+x.count,0) ?? tokens.filter(x=>x.status==="Processed").length;
-  const pendingPayments=stats?.payment_summary?.find(x=>x.status==="Pending")?.count ?? tokens.filter(x=>x.payment_status==="Pending").length;
-  return <section><PageHead title={t("adminDashboard")} text={t("centralizedManagement")} t={t}/><div className="stats"><Stat icon="👨‍🌾" label={t("registeredFarmers")} value={stats?.total_farmers ?? farmers.length}/><Stat icon="🎫" label={t("todaysTokens")} value={stats?.total_bookings ?? tokens.length}/><Stat icon="📦" label={t("completedProcurement")} value={completed}/><Stat icon="💰" label={t("pendingPayments")} value={pendingPayments}/></div><div className="grid2"><Card title={t("centreWiseCapacity")}><table><thead><tr><th>{t("centre")}</th><th>{t("location")}</th><th>{t("today")}</th><th>{t("capacityOnly")}</th><th>{t("status")}</th></tr></thead><tbody>{centres.map(c=><tr key={c.id}><td>{c.name}</td><td>{c.location}</td><td>{c.today}</td><td>{c.capacity}</td><td><span className={"badge "+(c.status==="Open"?"green":"red")}>{c.status==="Open"?t("open"):t("full")}</span></td></tr>)}</tbody></table></Card><Card title={t("recentTokens")}>{tokens.slice(0,8).map(x=><div className="mini-row" key={x.token}><b>{x.token}</b><span>{x.farmer}</span><span>{x.time}</span><span className="badge green">{x.status}</span></div>)}{!tokens.length&&<Empty text={t("noPurchasingDetails")}/>}</Card></div></section>}
+function AdminDashboard({farmers,centres,tokens,t}){return <section><PageHead title={t("adminDashboard")} text={t("centralizedManagement")}/><div className="stats"><Stat icon="👨‍🌾" label={t("registeredFarmers")} value={farmers.length}/><Stat icon="🎫" label={t("todaysTokens")} value={tokens.length}/><Stat icon="📦" label={t("completedProcurement")} value="18"/><Stat icon="💰" label={t("pendingPayments")} value="7"/></div><div className="grid2"><Card title={t("centreWiseCapacity")}><table><thead><tr><th>{t("centre")}</th><th>{t("location")}</th><th>{t("today")}</th><th>{t("capacityOnly")}</th><th>{t("status")}</th></tr></thead><tbody>{centres.map(c=><tr key={c.id}><td>{c.name}</td><td>{c.location}</td><td>{c.today}</td><td>{c.capacity}</td><td><span className={"badge "+(c.status==="Open"?"green":"red")}>{c.status==="Open"?t("open"):t("full")}</span></td></tr>)}</tbody></table></Card><Card title={t("recentTokens")}>{tokens.map(x=><div className="mini-row" key={x.token}><b>{x.token}</b><span>{x.farmer}</span><span>{x.time}</span><span className="badge green">{x.status}</span></div>)}</Card></div></section>}
 
 function FarmerManagement({farmers,search,setSearch,t}){const data=farmers.filter(f=>f.name.toLowerCase().includes(search.toLowerCase())||f.id.toLowerCase().includes(search.toLowerCase()));return <section><PageHead title={t("registeredFarmers")} text={t("viewManageRecords")}/><Card><input className="search" placeholder={t("searchFarmer")} value={search} onChange={e=>setSearch(e.target.value)}/><table><thead><tr><th>ID</th><th>{t("farmer")}</th><th>{t("mobileNumber")}</th><th>{t("location")}</th><th>{t("crop")}</th><th>{t("status")}</th></tr></thead><tbody>{data.map(f=><tr key={f.id}><td>{f.id}</td><td><b>{f.name}</b></td><td>{f.mobile}</td><td>{f.village}, {f.district}</td><td>{f.crop}</td><td><span className={"badge "+(f.status==="Active"?"green":"yellow")}>{f.status}</span></td></tr>)}</tbody></table></Card></section>}
 
 function CentreManagement({centres,setCentres,t}){
-  const [form,setForm]=useState({name:"",location:"",capacity:""});
+  const [form,setForm]=useState({name:"",location:""});
   const [message,setMessage]=useState("");
   const [error,setError]=useState("");
   const [submitting,setSubmitting]=useState(false);
@@ -1315,16 +1472,25 @@ function CentreManagement({centres,setCentres,t}){
   const submitCentre=async(e)=>{
     e.preventDefault();
     setError("");setMessage("");
-    if(!form.name||!form.location||!form.capacity||Number(form.capacity)<=0){
+    if(!form.name||!form.location){
       setError(t("selectRequired"));
       return;
     }
     setSubmitting(true);
     try{
       const payload={name:form.name,address:form.location};
-      const created=await apiRequest("/centres",{method:"POST",body:JSON.stringify(payload)});
-      setCentres(prev=>[...prev,mapCentreFromApi(created)]);
-      setForm({name:"",location:"",capacity:""});
+      const created=await apiRequest("/create-centre",{method:"POST",body:JSON.stringify(payload)});
+      setCentres(prev=>[...prev,{
+        id:created.centre_id,
+        name:form.name,
+        location:form.location,
+        lat:created.latitude?Number(created.latitude):undefined,
+        lng:created.longitude?Number(created.longitude):undefined,
+        capacity:0,
+        today:0,
+        status:"Open"
+      }]);
+      setForm({name:"",location:""});
       setMessage(t("centreCreated"));
       setTimeout(()=>setMessage(""),3000);
     }catch(err){
@@ -1340,7 +1506,7 @@ function CentreManagement({centres,setCentres,t}){
       <form onSubmit={submitCentre} className="create-centre-form">
         <div className="form-group"><label>{t("centreName")}</label><input value={form.name} onChange={e=>setForm(prev=>({...prev,name:e.target.value}))} placeholder={t("centreNamePlaceholder")}/></div>
         <div className="form-group"><label>{t("location")}</label><input value={form.location} onChange={e=>setForm(prev=>({...prev,location:e.target.value}))} placeholder={t("centreLocationPlaceholder")}/></div>
-        <div className="form-group"><label>{t("capacity")}</label><input type="number" min="1" value={form.capacity} onChange={e=>setForm(prev=>({...prev,capacity:e.target.value}))} placeholder={t("centreCapacityPlaceholder")}/></div>
+        <small className="muted">{t("centreCapacityHint")}</small>
         <button className="primary" type="submit" disabled={submitting}>{submitting?t("submitting"):t("createCentre")}</button>
       </form>
       {message&&<div className="success-banner">✓ {message}</div>}
@@ -1352,15 +1518,11 @@ function CentreManagement({centres,setCentres,t}){
 
 function TokenManagement({tokens,t}){return <section><PageHead title={t("todaysTokens")} text={t("manageQueue")}/><Card><table><thead><tr><th>{t("tokenNumber")}</th><th>{t("farmer")}</th><th>{t("centre")}</th><th>{t("time")}</th><th>{t("queue")}</th><th>{t("status")}</th></tr></thead><tbody>{tokens.map(x=><tr key={x.token}><td><b>{x.token}</b></td><td>{x.farmer}</td><td>{x.centre}</td><td>{x.time}</td><td>#{x.queue}</td><td><span className="badge green">{x.status}</span></td></tr>)}</tbody></table></Card></section>}
 
-function Verification({farmers,tokens=[],t}){const [rows,setRows]=useState(tokens.length?tokens:farmers);const verify=async(row)=>{const id=row.bookingId||row.booking_id;if(!id)return;try{await apiRequest(`/update-status/${id}`,{method:"PUT",body:JSON.stringify({status:"Verified"})});setRows(prev=>prev.map(x=>(x.bookingId||x.booking_id)===id?{...x,status:"Verified"}:x));}catch(err){alert(err.message);}};return <section><PageHead title={t("produceVerification")} text={t("verifyProduce")} t={t}/><Card><div className="table-wrap"><table><thead><tr><th>{t("farmer")}</th><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("quality")}</th><th>{t("action")}</th></tr></thead><tbody>{rows.length?rows.map(f=><tr key={f.token||f.id}><td>{f.farmer||f.name}</td><td>{f.crop||"—"}</td><td>{f.quantity||"—"}</td><td><span className={"badge "+(f.status==="Verified"||f.status==="Processed"?"green":"yellow")}>{f.status||t("pending")}</span></td><td>{f.bookingId||f.booking_id?<button className="small-btn" onClick={()=>verify(f)}>{t("verify")}</button>:"—"}</td></tr>):<tr><td colSpan="5">{t("noPurchasingDetails")}</td></tr>}</tbody></table></div></Card></section>}
+function Verification({farmers,t}){return <section><PageHead title={t("produceVerification")} text={t("verifyProduce")}/><Card><table><thead><tr><th>{t("farmer")}</th><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("quality")}</th><th>{t("action")}</th></tr></thead><tbody>{farmers.map(f=><tr key={f.id}><td>{f.name}</td><td>{f.crop}</td><td>{f.quantity}</td><td><span className="badge yellow">{t("pending")}</span></td><td><button className="small-btn">{t("verify")}</button></td></tr>)}</tbody></table></Card></section>}
 
-function AdminPayments({t,tokens=[]}){
-  const [rows,setRows]=useState(tokens);
-  useEffect(()=>setRows(tokens),[tokens]);
-  const markPaid=async(row)=>{try{await apiRequest(`/update-payment/${row.bookingId||row.booking_id}`,{method:"PUT",body:JSON.stringify({payment_status:"Completed",payment_method:"Bank Transfer"})});setRows(prev=>prev.map(x=>x.token===row.token?{...x,payment_status:"Completed"}:x));}catch(err){alert(err.message);}};
-  return <section><PageHead title={t("paymentStatus")} text={t("monitorPayments")} t={t}/><Card><table><thead><tr><th>{t("farmer")}</th><th>{t("procurementAmount")}</th><th>{t("paymentMethod")}</th><th>{t("status")}</th><th>{t("action")}</th></tr></thead><tbody>{rows.length?rows.map(r=>{const completed=r.payment_status==="Completed";const amount=(Number(r.quantity)||0)*50;return <tr key={r.token||r.bookingId}><td>{r.farmer}</td><td>₹{amount.toLocaleString("en-IN")}</td><td>{t("bankTransfer")}</td><td><span className={"badge "+(completed?"green":"yellow")}>{completed?t("processed"):t("pending")}</span></td><td>{completed?<span className="muted">✓ {t("processed")}</span>:<button className="small-btn" onClick={()=>markPaid(r)}>{t("markPaid")}</button>}</td></tr>}):<tr><td colSpan="5">{t("noPurchasingDetails")}</td></tr>}</tbody></table></Card></section>}
+function AdminPayments({t,onPaymentCompleted}){const rows=[['F001','Ravi Kumar','₹1,25,000','Bank Transfer','Pending','Wheat','500 kg','Jaipur Central Procurement Centre'],['F002','Mohan Singh','₹87,500','Bank Transfer','Processed','Mustard','350 kg','Chomu Procurement Centre'],['F003','Sita Devi','₹50,000','Bank Transfer','Pending','Wheat','200 kg','Jaipur Central Procurement Centre']];const [paidIds,setPaidIds]=useState([]);return <section><PageHead title={t("paymentStatus")} text={t("monitorPayments")}/><Card><table><thead><tr><th>{t("farmer")}</th><th>{t("procurementAmount")}</th><th>{t("paymentMethod")}</th><th>{t("status")}</th><th>{t("action")}</th></tr></thead><tbody>{rows.map(r=>{const processed=r[4]==="Processed"||paidIds.includes(r[0]);return <tr key={r[0]}><td>{r[1]}</td><td>{r[2]}</td><td>{t("bankTransfer")}</td><td><span className={"badge "+(processed?"green":"yellow")}>{processed?t("processed"):t("pending")}</span></td><td>{processed?<span className="muted">✓ {t("processed")}</span>:<button type="button" className="small-btn" onClick={()=>{setPaidIds(prev=>[...prev,r[0]]);onPaymentCompleted?.({farmerId:r[0],farmer:r[1],crop:r[5],quantity:r[6],amount:r[2],centre:r[7],paymentStatus:"Paid",saleStatus:"Completed"});}}>{t("markPaid")}</button>}</td></tr>})}</tbody></table></Card></section>}
 
-function PageHead({title,text,t}){return <div className="page-head"><div><h1>{title}</h1><p>{text}</p></div><div className="user-chip">🌾 {t ? t("agroVision") : "Agro Vision"}</div></div>}
+function PageHead({title,text,t}){return <div className="page-head"><div><h1>{title}</h1><p>{text}</p></div><div className="user-chip">🌾 {t ? t("agroVision") : "Procura"}</div></div>}
 function Card({title,children}){return <div className="card">{title&&<h2>{title}</h2>}{children}</div>}
 function Stat({icon,label,value}){return <div className="stat"><div className="stat-icon">{icon}</div><div><small>{label}</small><strong>{value}</strong></div></div>}
 function InfoGrid({data}){return <div className="info-grid">{Object.entries(data).map(([k,v])=><div key={k}><small>{k}</small><b>{v}</b></div>)}</div>}
