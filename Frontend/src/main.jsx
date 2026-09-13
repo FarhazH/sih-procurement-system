@@ -26,7 +26,7 @@ const translations = {
     hindi: "हिंदी",
 
     smartProcurement: "Smart Procurement",
-    agroVision: "Agro Vision",
+    agroVision: "Procura",
     agroVisionSubtitle: "Farmer Procurement & Tracking System",
     smartProcurementTagline: "Smart Procurement for Smart Farmers",
 
@@ -153,7 +153,7 @@ const translations = {
     hindi: "हिंदी",
 
     smartProcurement: "स्मार्ट प्रोक्योरमेंट",
-    agroVision: "एग्रो विज़न",
+    agroVision: "Procura",
     agroVisionSubtitle: "किसान खरीद एवं ट्रैकिंग प्रणाली",
     smartProcurementTagline: "स्मार्ट किसानों के लिए स्मार्ट प्रोक्योरमेंट",
 
@@ -364,6 +364,14 @@ const extraTranslations = {
     videoHindiVoice: "Hindi voice / instructions are provided by the Hindi demonstration video.",
     videoAssetNote: "Place the actual MP4 files at the configured video paths to play the demonstrations.",
     videoSteps: "Login • Dashboard • Crop • Centre • Slot • Token • Waiting List • Notifications • Payment",
+    unit: "Unit", quintalUnit: "Quintal",
+    createCentre: "Add New Centre", centreName: "Centre Name", centreNamePlaceholder: "Enter centre name",
+    centreLocationPlaceholder: "Enter centre location", centreCapacityPlaceholder: "Enter total capacity",
+    centreCreated: "Centre created successfully.", centreCreateFailed: "Could not create the centre.",
+    submitting: "Submitting...",
+    createSlot: "Add New Slot", slotCreated: "Slot created successfully.", slotCreateFailed: "Could not create the slot.",
+    registrationSubtitle: "Create your farmer account to start booking procurement tokens.",
+    alreadyHaveAccount: "Already have an account?", registrationFailed: "Registration could not be completed.",
   },
   hi: {
     cancelBooking: "बुकिंग रद्द करें", cancelBookingTitle: "अपनी बुकिंग रद्द करें",
@@ -450,6 +458,14 @@ const extraTranslations = {
     videoHindiVoice: "हिंदी प्रदर्शन वीडियो में हिंदी आवाज़ / निर्देश शामिल हैं।",
     videoAssetNote: "डेमो चलाने के लिए वास्तविक MP4 फाइलें निर्धारित वीडियो पथ पर रखें।",
     videoSteps: "लॉगिन • डैशबोर्ड • फसल • केंद्र • स्लॉट • टोकन • प्रतीक्षा सूची • सूचनाएं • भुगतान",
+    unit: "इकाई", quintalUnit: "क्विंटल",
+    createCentre: "नया केंद्र जोड़ें", centreName: "केंद्र का नाम", centreNamePlaceholder: "केंद्र का नाम दर्ज करें",
+    centreLocationPlaceholder: "केंद्र का स्थान दर्ज करें", centreCapacityPlaceholder: "कुल क्षमता दर्ज करें",
+    centreCreated: "केंद्र सफलतापूर्वक बनाया गया।", centreCreateFailed: "केंद्र नहीं बनाया जा सका।",
+    submitting: "जमा हो रहा है...",
+    createSlot: "नया स्लॉट जोड़ें", slotCreated: "स्लॉट सफलतापूर्वक बनाया गया।", slotCreateFailed: "स्लॉट नहीं बनाया जा सका।",
+    registrationSubtitle: "खरीद टोकन बुक करना शुरू करने के लिए अपना किसान खाता बनाएं।",
+    alreadyHaveAccount: "पहले से खाता है?", registrationFailed: "पंजीकरण पूरा नहीं हो सका।",
   }
 };
 
@@ -541,6 +557,7 @@ function App(){
   const t = (key) => translations[language]?.[key] || extraTranslations[language]?.[key] || translations.en?.[key] || key;
   const [role,setRole] = useState("farmer");
   const [loggedIn,setLoggedIn] = useState(false);
+  const [showRegister,setShowRegister] = useState(false);
   const [farmers,setFarmers] = useState(initialFarmers);
   const [tokens,setTokens] = useState(initialTokens);
   const [centres,setCentres] = useState(initialCentres);
@@ -576,9 +593,18 @@ function App(){
       setPayments(paymentData || []);
       setProcurements(procurementData || []);
     } else {
-      const [adminBookings, adminFarmers] = await Promise.all([apiRequest("/admin/bookings"), apiRequest("/admin/farmers")]);
-      setTokens(Array.isArray(adminBookings) ? adminBookings : []);
+      const [adminBookings, adminFarmers, adminStats] = await Promise.all([
+        apiRequest("/admin/bookings"), apiRequest("/admin/farmers"), apiRequest("/admin/stats")
+      ]);
+      const mappedBookings = (adminBookings || []).map(b => ({
+        ...b, token: `B-${b.booking_id}`, bookingId: b.booking_id, farmerId: b.user_id,
+        farmer: b.farmer_name, mobile: b.farmer_phone, centre: b.centre_name,
+        time: b.time_window, queue: b.queue_position || "—", date: b.date,
+        crop: b.crop_type, quantity: b.quantity, bookingType: b.pool_type || "general"
+      }));
+      setTokens(mappedBookings);
       if (Array.isArray(adminFarmers)) setFarmers(adminFarmers.map(f=>({...f,id:f.user_id ?? f.id,mobile:f.phone ?? f.mobile,status:f.status || "Active"})));
+      setAdminStats(adminStats || null);
     }
   };
   const addNotification=(notification)=>setNotifications(prev=>[{id:`N-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,read:false,createdAt:new Date().toISOString(),...notification},...prev]);
@@ -661,18 +687,21 @@ function App(){
   },[authToken]);
 
   if(!loggedIn){
-    return <Login role={role} setRole={setRole} language={language} setLanguage={setLanguage} onLogin={handleLogin} onRegister={()=>alert(language==="hi"?"पंजीकरण बैकएंड से जोड़ा जा सकता है। डेमो के लिए किसान: 9876543210 / 1234":"Registration can be connected to the backend. For this demo, use Farmer: 9876543210 / 1234.")} t={t}/>;
+    if(showRegister){
+      return <Register language={language} setLanguage={setLanguage} onBack={()=>setShowRegister(false)} onRegistered={async(mobile,password)=>{setShowRegister(false);await handleLogin({mobile,password,role:"farmer"});}} t={t}/>;
+    }
+    return <Login role={role} setRole={setRole} language={language} setLanguage={setLanguage} onLogin={handleLogin} onRegister={()=>setShowRegister(true)} t={t}/>;
   }
 
   return <div className="app">
     <header className="topbar">
-      <div className="topbar-brand"><img src="/assets/images/agro-vision-logo-transparent.png" alt="Agro Vision"/><div><div className="brand">{t("agroVision")}</div><div className="brand-subtitle">{t("smartProcurement")}</div></div></div>
+      <div className="topbar-brand"><img src="/assets/images/procura-logo.png" alt="Procura"/><div><div className="brand">{t("agroVision")}</div><div className="brand-subtitle">{t("smartProcurement")}</div></div></div>
       <div className="topbar-right">
         <select value={language} onChange={e=>setLanguage(e.target.value)} className="language-selector"><option value="en">English</option><option value="hi">हिंदी</option></select>
         <div className="role-switch"><span className="role-badge">{role==="farmer"?"👨‍🌾":"👨‍💼"} {role==="farmer"?(language==="hi"?"किसान पोर्टल":"Farmer Portal"):(language==="hi"?"एडमिन पोर्टल":"Admin Portal")}</span><button onClick={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);setRole("farmer");}}>↪ {t("logout")}</button></div>
       </div>
     </header>
-    {role==="farmer"?<FarmerApp farmers={farmers} centres={centres} slots={slots} tokens={tokens} waitingList={waitingList} currentFarmerId={currentFarmerId} onBookRequest={addBookingRequest} onCancelToken={cancelToken} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} language={language} notifications={notifications} markNotificationRead={markNotificationRead} onCallAdmin={()=>{}}/>:role==="operator"?<OperatorApp tokens={tokens} farmers={farmers} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t}/>:<AdminApp farmers={farmers} centres={centres} tokens={tokens} waitingList={waitingList} setCentres={setCentres} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} notifications={notifications} addSalePaymentNotification={addSalePaymentNotification}/>} 
+    {role==="farmer"?<FarmerApp farmers={farmers} centres={centres} slots={slots} tokens={tokens} waitingList={waitingList} currentFarmerId={currentFarmerId} onBookRequest={addBookingRequest} onCancelToken={cancelToken} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} language={language} notifications={notifications} markNotificationRead={markNotificationRead} onCallAdmin={()=>{}}/>:role==="operator"?<OperatorApp tokens={tokens} farmers={farmers} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t}/>:<AdminApp farmers={farmers} centres={centres} tokens={tokens} slots={slots} setSlots={setSlots} waitingList={waitingList} setCentres={setCentres} adminStats={adminStats} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} notifications={notifications} addSalePaymentNotification={addSalePaymentNotification}/>} 
   </div>;
 }
 
@@ -682,7 +711,7 @@ function FarmerApp({farmers,centres,slots,tokens,waitingList,currentFarmerId,onB
   return <div className="layout">
     <Sidebar title={t("farmerPortal")} items={[["dashboard",t("dashboard"),"🏠"],["gps",t("gps"),"📍"],["profile",t("profile"),"👨‍🌾"],["produce",t("produce"),"🌾"],["book",t("bookToken"),"🎫"],["queue",t("queue"),"🔎"],["payment",t("payment"),"💰"],["cancel",t("cancelBooking"),"✕"],["analysis",t("analysis"),"📈"],["reports",t("reports"),"📄"],["notifications",t("notifications"),"🔔"],["feedback",t("feedback"),"⭐"],["prices",t("cropPrices"),"📈"],["howto",t("howToUse"),"▶️"]]} page={page} setPage={setPage} onLogout={onLogout} t={t} />
     <main className="content">
-      {page==="gps"&&<FarmerGPS centres={centres} t={t} language={language}/>} {page==="dashboard"&&<FarmerDashboard farmer={currentFarmer} tokens={tokens} setPage={setPage} t={t}/>} {page==="profile"&&<Profile farmer={currentFarmer} t={t}/>} {page==="produce"&&<Produce farmer={currentFarmer} t={t}/>} {page==="book"&&<BookToken centres={centres} slots={slots} tokens={tokens} onBook={async data=>{const result=await onBookRequest({...data,farmer:currentFarmer.name,farmerId:currentFarmer.id});if(result?.type==="booked"||result?.type==="waiting"){setSelectedToken(result.record);setPage("queue");}else alert(t("bookingFailed"));}} t={t}/>} {page==="queue"&&<Queue tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} selected={selectedToken} onCancel={onCancelToken} t={t}/>} {page==="cancel"&&<CancelBooking tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} onCancel={onCancelToken} setPage={setPage} t={t}/>} {page==="payment"&&<Payment t={t}/>} {page==="analysis"&&<FarmerAnalysis farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} t={t}/>} {page==="reports"&&<FarmerReports farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} t={t}/>} {page==="notifications"&&<Notifications t={t} notifications={notifications} markNotificationRead={markNotificationRead} farmerId={currentFarmer.id}/>} {page==="feedback"&&<FarmerFeedback farmer={currentFarmer} t={t}/>} {page==="prices"&&<CropPrices t={t} farmer={currentFarmer}/>} {page==="howto"&&<HowToUse language={language} t={t}/>} 
+      {page==="gps"&&<FarmerGPS centres={centres} t={t} language={language}/>} {page==="dashboard"&&<FarmerDashboard farmer={currentFarmer} tokens={tokens} setPage={setPage} t={t}/>} {page==="profile"&&<Profile farmer={currentFarmer} t={t}/>} {page==="produce"&&<Produce farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} procurements={procurements} t={t}/>} {page==="book"&&<BookToken centres={centres} slots={slots} tokens={tokens} onBook={async data=>{const result=await onBookRequest({...data,farmer:currentFarmer.name,farmerId:currentFarmer.id});if(result?.type==="booked"||result?.type==="waiting"){setSelectedToken(result.record);setPage("queue");}else alert(t("bookingFailed"));}} t={t}/>} {page==="queue"&&<Queue tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} selected={selectedToken} onCancel={onCancelToken} t={t}/>} {page==="cancel"&&<CancelBooking tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} onCancel={onCancelToken} setPage={setPage} t={t}/>} {page==="payment"&&<Payment payments={payments} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} t={t}/>} {page==="analysis"&&<FarmerAnalysis farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} payments={payments} t={t}/>} {page==="reports"&&<FarmerReports farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} payments={payments} procurements={procurements} t={t}/>} {page==="notifications"&&<Notifications t={t} notifications={notifications} markNotificationRead={markNotificationRead} farmerId={currentFarmer.id}/>} {page==="feedback"&&<FarmerFeedback farmer={currentFarmer} t={t}/>} {page==="prices"&&<CropPrices t={t} farmer={currentFarmer}/>} {page==="howto"&&<HowToUse language={language} t={t}/>} 
     </main>
   </div>;
 }
@@ -828,7 +857,7 @@ function Login({role,setRole,language,setLanguage,onLogin,onRegister,t}){
     <div className="login-layout login-layout-centered">
       <div className="login-card">
         <div className="login-card-logo">
-          <img src="/assets/images/agro-vision-logo-transparent.png" alt="Agro Vision" />
+          <img src="/assets/images/procura-logo.png" alt="Procura" />
         </div>
         <div className="login-card-brand">🌱 {t("agroVision")}</div><div className="login-card-subbrand">{t("smartProcurement")}</div><h2>{t("welcomeBack")}</h2>
         <p className="muted">{t("loginContinue")}</p>
@@ -863,6 +892,60 @@ function Login({role,setRole,language,setLanguage,onLogin,onRegister,t}){
   </div>;
 }
 
+function Register({language,setLanguage,onBack,onRegistered,t}){
+  const [form,setForm]=useState({name:"",mobile:"",password:"",village:"",district:"",crop:bookingCrops[0],quantity:""});
+  const [error,setError]=useState("");
+  const [submitting,setSubmitting]=useState(false);
+
+  const update=(field)=>(e)=>setForm(prev=>({...prev,[field]:e.target.value}));
+
+  const submitRegistration=async(e)=>{
+    e.preventDefault();
+    setError("");
+    if(!form.name||!form.mobile||!form.password||!form.village||!form.district||!form.quantity){
+      setError(t("selectRequired"));
+      return;
+    }
+    setSubmitting(true);
+    try{
+      const payload={name:form.name,phone:form.mobile,password:form.password,village:form.village,district:form.district,crop:form.crop,quantity:form.quantity};
+      await apiRequest("/register",{method:"POST",body:JSON.stringify(payload)});
+      await onRegistered(form.mobile,form.password);
+    }catch(err){
+      setError(err.message||t("registrationFailed"));
+      setSubmitting(false);
+    }
+  };
+
+  return <div className="login-page">
+    <div className="login-language">
+      <select value={language} onChange={e=>setLanguage(e.target.value)} className="language-selector" aria-label="Language">
+        <option value="en">English</option><option value="hi">हिंदी</option>
+      </select>
+    </div>
+    <div className="login-layout login-layout-centered">
+      <div className="login-card">
+        <div className="login-card-logo"><img src="/assets/images/procura-logo.png" alt="Procura"/></div>
+        <div className="login-card-brand">🌱 {t("agroVision")}</div><div className="login-card-subbrand">{t("smartProcurement")}</div>
+        <h2>{t("createAccount")}</h2>
+        <p className="muted">{t("registrationSubtitle")}</p>
+        <form onSubmit={submitRegistration}>
+          <div className="form-group"><label>{t("name")}</label><input value={form.name} onChange={update("name")} placeholder={t("name")}/></div>
+          <div className="form-group"><label>{t("mobileNumber")}</label><input type="tel" maxLength="10" value={form.mobile} onChange={update("mobile")} placeholder={t("enterMobileYour")}/></div>
+          <div className="form-group"><label>{t("password")}</label><input type="password" value={form.password} onChange={update("password")} placeholder={t("enterPasswordYour")}/></div>
+          <div className="form-group"><label>{t("village")}</label><input value={form.village} onChange={update("village")} placeholder={t("village")}/></div>
+          <div className="form-group"><label>{t("district")}</label><input value={form.district} onChange={update("district")} placeholder={t("district")}/></div>
+          <div className="form-group"><label>{t("crop")}</label><select value={form.crop} onChange={update("crop")}>{bookingCrops.map(c=><option key={c} value={c}>{t(c.toLowerCase())}</option>)}</select></div>
+          <div className="form-group"><label>{t("quantity")}</label><input value={form.quantity} onChange={update("quantity")} placeholder={t("quantity")}/></div>
+          {error&&<div className="gps-error">⚠️ {error}</div>}
+          <button type="submit" className="primary full" disabled={submitting}>{submitting?t("submitting"):t("createAccount")}</button>
+        </form>
+        <div className="register-row"><span>{t("alreadyHaveAccount")}</span><button type="button" onClick={onBack}>{t("login")}</button></div>
+      </div>
+    </div>
+  </div>;
+}
+
 function HowToUse({t,language}){const isHindi=language==="hi";const videoSrc=isHindi?"/assets/videos/Agro_Vision_How_To_Use_Hindi_Demo.mp4":"/assets/videos/Agro_Vision_How_To_Use_English_Demo.mp4";return <section className="howto-page"><div className="page-head"><div><span className="eyebrow">▶ {t("howToUse")}</span><h1>{isHindi?t("howToUseHindi"):t("howToUseEnglish")}</h1><p>{t("watchDemo")}</p></div><div className="user-chip">🌱 {t("agroVision")}</div></div><div className="howto-card"><div className="video-header"><div><span className="eyebrow">{isHindi?t("videoHindi"):t("videoEnglish")}</span><h2>{isHindi?t("howToUseHindi"):t("howToUseEnglish")}</h2><p>{t("watchDemo")}</p></div><span className="video-language">{isHindi?t("hindi"):t("english")}</span></div><div className="video-frame"><video controls playsInline preload="metadata" src={videoSrc} onError={(e)=>{e.currentTarget.style.display="none";e.currentTarget.parentElement.classList.add("video-missing");}}><track kind="captions" /></video><div className="video-missing-message">▶️ {t("videoUnavailable")}</div></div><div className="video-note">🎧 {isHindi?t("videoHindiVoice"):t("watchDemo")} {t("videoSteps")}</div><div className="video-asset-note">ℹ️ {t("videoAssetNote")}</div></div></section>}
 
 function Sidebar({title,items,page,setPage,onLogout,t}){
@@ -877,14 +960,20 @@ function FarmerDashboard({farmer,tokens,setPage,t}){const token=tokens.find(x=>x
 
 function Profile({farmer,t}){return <section><PageHead title={t("profile")} text={t("registeredFarmerInfo")}/><Card><InfoGrid data={{[t("farmerId")]:farmer.id,[t("name")]:farmer.name,[t("mobileNumber")]:farmer.mobile,[t("village")]:farmer.village,[t("district")]:farmer.district,[t("crop")]:farmer.crop,[t("quantity")]:farmer.quantity,[t("accountStatus")]:farmer.status}}/></Card></section>}
 
-function Produce({farmer,t}){return <section><PageHead title={t("produceDetails")} text={t("produceSubmitted")}/><Card><table><thead><tr><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("centre")}</th><th>{t("verification")}</th></tr></thead><tbody><tr><td>{farmer.crop}</td><td>{farmer.quantity}</td><td>Jaipur Central Procurement Centre</td><td><span className="badge green">{t("pending")}</span></td></tr></tbody></table></Card></section>}
+function Produce({farmer,tokens=[],procurements=[],t}){return <section><PageHead title={t("produceDetails")} text={t("produceSubmitted")} t={t}/><Card><div className="table-wrap"><table><thead><tr><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("centre")}</th><th>{t("verification")}</th></tr></thead><tbody>{tokens.length?tokens.map(x=>{const p=procurements.find(y=>y.booking_id===x.bookingId);return <tr key={x.token}><td>{x.crop||"—"}</td><td>{x.quantity??"—"}</td><td>{x.centre||"—"}</td><td><span className={"badge "+(p?.final_status==="Completed"||x.status==="Processed"?"green":"yellow")}>{p?.final_status||x.status||t("pending")}</span></td></tr>}):<tr><td colSpan="4">{t("noPurchasingDetails")}</td></tr>}</tbody></table></div></Card></section>}
 
+function getTodayDateString(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function languageFallback(t,en,hi){ return t("__language") === "hi" ? hi : en; }
 function BookToken({centres,slots=[],tokens=[],onBook,t}){
   const [centre,setCentre]=useState("");
-  const [date,setDate]=useState("2026-09-11");
+  const [date,setDate]=useState(getTodayDateString());
   const [time,setTime]=useState("10:00 AM");
   const [crop,setCrop]=useState("Wheat");
   const [quantity,setQuantity]=useState("");
+  const [unit,setUnit]=useState("Quintal");
   const [bookingType,setBookingType]=useState("normal");
   const [priorityReason,setPriorityReason]=useState("noSlot");
   const selectedCentre=centres.find(c=>c.id===centre);
@@ -911,7 +1000,13 @@ function BookToken({centres,slots=[],tokens=[],onBook,t}){
           </div>
           <div className="form-group">
             <label>{t("quantityToBook")}</label>
-            <input type="number" min="1" value={quantity} placeholder={t("quantityPlaceholder")} onChange={e=>setQuantity(e.target.value)}/>
+            <div className="quantity-unit-row">
+              <input type="number" min="1" value={quantity} placeholder={t("quantityPlaceholder")} onChange={e=>setQuantity(e.target.value)}/>
+              <select value={unit} onChange={e=>setUnit(e.target.value)} aria-label={t("unit")}>
+                <option value="Quintal">{t("quintalUnit")}</option>
+                <option value="Kg">{t("kg")}</option>
+              </select>
+            </div>
           </div>
         </Card>
         <Card title={`2. ${t("selectProcurementCentre")}`}>
@@ -931,16 +1026,16 @@ function BookToken({centres,slots=[],tokens=[],onBook,t}){
           <button type="button" className={bookingType==="priority"?"booking-type active":"booking-type"} onClick={()=>setBookingType("priority")}><strong>{t("priorityBooking")}</strong><small>{t("priorityBookingDesc")}</small></button>
         </div>
         {bookingType==="priority"&&<div className="priority-reason"><label>{t("priorityReason")}</label><select value={priorityReason} onChange={e=>setPriorityReason(e.target.value)}><option value="noSlot">{t("reasonNoSlot")}</option><option value="requiredTime">{t("reasonRequiredTime")}</option><option value="other">{t("reasonOther")}</option></select></div>}
-        <label>{t("date")}</label><input type="date" value={date} onChange={e=>setDate(e.target.value)}/>
+        <label>{t("date")}</label><input type="date" value={date} min={getTodayDateString()} onChange={e=>setDate(e.target.value)}/>
         <label>{t("availableTimeSlot")}</label>
-        <div className="slots">{["09:00 AM","10:00 AM","11:00 AM","12:00 PM","02:00 PM"].map(x=><button type="button" className={time===x?"slot selected":"slot"} onClick={()=>setTime(x)} key={x}>{x}</button>)}</div>
+        <div className="slots">{matchingSlots.map(x=><button type="button" className={selectedSlot?.id===x.id?"slot selected":"slot"} onClick={()=>setTime(x.time_window)} key={x.id}>{x.time_window}</button>)}{centre&&!matchingSlots.length&&<div className="data-note">No slot has been created for this date yet. Ask the admin to create a slot for this date.</div>}</div>
         {selectedCentre&&<div className="booking-capacity-summary">
           <div><span>{t("availableCapacity")}</span><strong>{totalAvailable}</strong></div>
           <div><span>{t("normalAvailable")}</span><strong>{normalAvailable}</strong></div>
           <div><span>{t("priorityAvailable")}</span><strong>{priorityAvailable}</strong></div>
         </div>}
         <p className="booking-category-note">ℹ️ {t("bookingCategoryNote")}</p>
-        <button type="button" className="primary full" disabled={!canSubmit} onClick={()=>onBook({centre:selectedCentre?.name,centreId:selectedCentre?.id,slotId:selectedSlot?.id,date,time,crop,quantity,bookingType,priorityReason,queue:5})}>{(categoryAvailable<=0||totalAvailable<=0)&&centre?t("joinWaitingList"):t("confirmBooking")}</button>
+        <button type="button" className="primary full" disabled={!canSubmit} onClick={()=>onBook({centre:selectedCentre?.name,centreId:selectedCentre?.id,slotId:selectedSlot?.id,date,time,crop,quantity,unit,bookingType,priorityReason,queue:5})}>{(categoryAvailable<=0||totalAvailable<=0)&&centre?t("joinWaitingList"):t("confirmBooking")}</button>
         {centre&&totalAvailable<=0&&<div className="waiting-inline">⏳ {t("waitReason")}</div>}
       </Card>
     </div>
@@ -959,7 +1054,7 @@ function Queue({tokens,selected,onCancel,t}){
     <div><span>{t("timeSlot")}</span><strong>{bookedToken.time}</strong></div>
   </div>{isWaiting?<div className="queue-actions"><span className="badge yellow">{t("waiting")}</span><span className="muted">{t("waitReason")}</span></div>:active?<div className="queue-actions"><span className="badge green">{bookedToken.bookingType==="priority"?t("priorityBooking"):t("normalBooking")}</span><button className="danger-button" onClick={()=>{if(window.confirm(t("cancelBookingConfirm")))onCancel(bookedToken.token)}}>✕ {t("cancelBooking")}</button></div>:<div className="queue-actions"><span className="badge red">{t("cancelled")}</span></div>}</Card>:<Card><Empty text={t("noToken")}/></Card>}<Card title={t("procurementTimeline")}><div className="horizontal-timeline">{["tokenConfirmed","inQueue","verification","procured","payment"].map((key,i)=><div className={i<2&&active&&!isWaiting?"hstep done":"hstep"} key={key}><span>{i<2&&active&&!isWaiting?"✓":i+1}</span><b>{t(key)}</b></div>)}</div></Card></section>
 }
-function Payment({t}){return <section><PageHead title={t("paymentStatus")} text={t("trackPayment")}/><Card><div className="payment-card"><div className="big-icon">💰</div><h2>{t("paymentPending")}</h2><p>{t("paymentUpdateAfter")}</p><div className="info-row"><span>{t("expectedAmount")}</span><b>₹ 1,25,000</b></div><div className="info-row"><span>{t("paymentMethod")}</span><b>{t("bankTransfer")}</b></div></div></Card></section>}
+function Payment({payments=[],tokens=[],t}){const latest=payments[0];const pending=payments.filter(p=>p.payment_status!=="Completed").reduce((s,p)=>s+Number(p.amount||0),0);const completed=payments.filter(p=>p.payment_status==="Completed").reduce((s,p)=>s+Number(p.amount||0),0);return <section><PageHead title={t("paymentStatus")} text={t("trackPayment")} t={t}/><div className="stats"><Stat icon="💰" label={t("received")} value={`₹${completed.toLocaleString("en-IN")}`}/><Stat icon="⏳" label={t("pendingAmount")} value={`₹${pending.toLocaleString("en-IN")}`}/><Stat icon="🎫" label={t("transactions")} value={payments.length}/><Stat icon="📄" label={t("activeToken")} value={tokens.find(x=>x.status!=="Cancelled")?.token||"—"}/></div><Card><div className="table-wrap"><table><thead><tr><th>{t("tokenNumber")}</th><th>{t("amount")}</th><th>{t("paymentMethod")}</th><th>{t("status")}</th><th>{t("paymentDate")}</th></tr></thead><tbody>{payments.length?payments.map(p=>{const token=tokens.find(x=>Number(x.bookingId)===Number(p.booking_id));return <tr key={p.id}><td>{token?.token||`B-${p.booking_id}`}</td><td>₹{Number(p.amount||0).toLocaleString("en-IN")}</td><td>{p.payment_method||t("bankTransfer")}</td><td><span className={"badge "+(p.payment_status==="Completed"?"green":"yellow")}>{p.payment_status}</span></td><td>{p.paid_at||p.created_at||"—"}</td></tr>;}):<tr><td colSpan="5">{t("paymentUpdateAfter")}</td></tr>}</tbody></table></div>{latest&&<div className="data-note" style={{marginTop:14}}>Latest payment status: <b>{latest.payment_status}</b></div>}</Card></section>}
 
 function Notifications({t,notifications=[],markNotificationRead,farmerId}){const mine=notifications.filter(n=>n.farmerId===farmerId);const render=n=>{const d=n.data||{};if(n.type==="booking")return <><b>{t("bookingNotificationTitle")}</b><small>{t("bookingNotificationText")} {t("tokenNumber")}: {d.token} • {t("procurementCentre")}: {d.centre} • {t("date")}: {d.date} • {t("time")}: {d.time} • {t("crop")}: {d.crop||"—"}</small><small>{t("reachCentre")}</small></>;return <><b>{t("saleNotificationTitle")}</b><small>{t("saleNotificationText")} • {t("crop")}: {d.crop} • {t("quantityLabel")}: {d.quantity} • {t("paymentAmount")}: {d.amount} • {t("procurementCentre")}: {d.centre} • {t("status")}: {t("paid")}</small></>};const staticNotes=[t("note1"),t("note2"),t("note3"),t("note4")];return <section><PageHead title={t("notificationTitle")} text={t("importantUpdates")}/><div className="notice-list">{mine.map(n=><button type="button" className={"notice notification-button "+(!n.read?"unread":"")} key={n.id} onClick={()=>markNotificationRead?.(n.id)}><span>🔔</span><div>{render(n)}{!n.read&&<em>{t("unread")}</em>}</div></button>)}{staticNotes.map((n,i)=><div className="notice" key={`static-${i}`}><span>🔔</span><div><b>{n}</b><small>{t("today")} • 10:{20+i*5} AM</small></div></div>)}{!mine.length&&<div className="data-note">ℹ️ {t("noNewNotifications")}</div>}</div></section>}
 
@@ -987,7 +1082,7 @@ const advisoryCropKeys=["wheat","mustard","bajra","maize","gram"];
 const advisoryCropWindows={wheat:"January–April",mustard:"January–March & November–December",bajra:"July–October",maize:"July–October",gram:"January–March & November–December"};
 
 
-function FarmerAnalysis({farmer,t,tokens=[]}){const cropData=cropSalesHistoryData[farmer.id]||cropSalesHistoryData.F001;const totalSold=cropData.reduce((s,x)=>s+x.quantity,0);const received=paymentHistoryData.reduce((s,x)=>s+x.received,0);const pending=paymentHistoryData.reduce((s,x)=>s+x.pending,0);return <section className="analysis-report-area"><div className="analysis-toolbar"><div><PageHead title={t("analysisTitle")} text={t("analysisDesc")} t={t}/></div><button className="report-button generate-report-button" onClick={()=>window.print()}>📄 {t("generateReport")}</button></div><div className="analysis-cards farmer-analysis-summary"><div className="analysis-card"><span>{t("totalCropSold")}</span><strong>{totalSold.toLocaleString()}</strong><small>{t("kg")}</small></div><div className="analysis-card"><span>{t("totalPayments")}</span><strong>₹{received.toLocaleString("en-IN")}</strong><small>{t("received")}</small></div><div className="analysis-card"><span>{t("pendingAmount")}</span><strong>₹{pending.toLocaleString("en-IN")}</strong><small>{t("pending")}</small></div><div className="analysis-card"><span>{t("transactions")}</span><strong>{paymentHistoryData.length}</strong><small>{t("status")}</small></div></div><div className="analysis-chart-grid"><div className="analysis-chart-card"><h2>{t("paymentHistory")}</h2><p className="chart-description">{t("paymentHistoryDesc")}</p><ResponsiveContainer width="100%" height={320}><BarChart data={paymentHistoryData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Bar dataKey="received" name={t("received")} fill="#1f8f5f" radius={[6,6,0,0]}/><Bar dataKey="pending" name={t("pendingAmount")} fill="#b9d9c6" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></div><div className="analysis-chart-card"><h2>{t("cropSalesHistory")}</h2><p className="chart-description">{t("cropSalesHistoryDesc")}</p><ResponsiveContainer width="100%" height={320}><LineChart data={cropData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Line type="monotone" dataKey="quantity" name={t("quantitySold")} stroke="#1f8f5f" strokeWidth={3} dot={{r:4}}/></LineChart></ResponsiveContainer></div></div><div className="advisory-section"><div className="advisory-heading"><div><h2>{t("cropAdvisory")}</h2><p>{t("cropAdvisoryDesc")}</p></div></div><div className="analysis-chart-card"><h2>{t("advisoryGraph")}</h2><p className="chart-description">{t("advisoryGraphDesc")}</p><ResponsiveContainer width="100%" height={360}><LineChart data={rajasthanSellingAdvisory}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis domain={[0,5]} ticks={[1,2,3,4,5]}/><Tooltip/><Legend/><Line type="monotone" dataKey="wheat" name={t("wheat")} stroke="#1f8f5f" strokeWidth={3}/><Line type="monotone" dataKey="mustard" name={t("mustard")} stroke="#d4a72c" strokeWidth={3}/><Line type="monotone" dataKey="bajra" name={t("bajra")} stroke="#8b6f47" strokeWidth={3}/><Line type="monotone" dataKey="maize" name={t("maize")} stroke="#e28a2b" strokeWidth={3}/><Line type="monotone" dataKey="gram" name={t("gram")} stroke="#6f8f45" strokeWidth={3}/></LineChart></ResponsiveContainer></div><div className="farmer-advisory-highlight"><div><span className="eyebrow">🌾 {t("recommendedCrop")}</span><h3>{t((String(farmer.crop||"").toLowerCase()==="wheat"?"wheat":String(farmer.crop||"").toLowerCase()==="mustard"?"mustard":String(farmer.crop||"").toLowerCase()==="bajra"?"bajra":String(farmer.crop||"").toLowerCase()==="maize"?"maize":"gram"))}</h3><p>{t("bestSellingWindow")}: <strong>{advisoryCropWindows[String(farmer.crop||"").toLowerCase()==="wheat"?"wheat":String(farmer.crop||"").toLowerCase()==="mustard"?"mustard":String(farmer.crop||"").toLowerCase()==="bajra"?"bajra":String(farmer.crop||"").toLowerCase()==="maize"?"maize":"gram"]}</strong></p></div><div className="advisory-highlight-note">{t("advisoryNote")}</div></div><div className="advisory-grid">{advisoryCropKeys.map(key=><div className="advisory-card" key={key}><strong>{t(key)}</strong><span>{t("bestSellingWindow")}</span><b>{advisoryCropWindows[key]}</b></div>)}</div><div className="data-note">ℹ️ {t("advisoryNote")}</div></div><div className="data-note">ℹ️ {t("demoDataNote")}</div><div className="print-only-report-details"><div className="print-report-heading"><div className="report-brand"><img src="/assets/images/agro-vision-logo-transparent.png" alt="Agro Vision"/><div><strong>{t("agroVision")}</strong><span>{t("smartProcurement")}</span></div></div><h2>{t("farmerCompleteReport")}</h2><p>{t("farmerCompleteReportDesc")}</p></div><h3>{t("farmerDetails")}</h3><div className="table-wrap"><table><tbody><tr><th>{t("farmerId")}</th><td>{farmer.id}</td><th>{t("name")}</th><td>{farmer.name}</td></tr><tr><th>{t("mobileNumber")}</th><td>{farmer.mobile}</td><th>{t("village")}</th><td>{farmer.village}</td></tr><tr><th>{t("district")}</th><td>{farmer.district}</td><th>{t("crop")}</th><td>{farmer.crop}</td></tr><tr><th>{t("quantity")}</th><td>{farmer.quantity}</td><th>{t("accountStatus")}</th><td>{farmer.status}</td></tr></tbody></table></div><h3>{t("purchasingDetails")}</h3><div className="table-wrap"><table><thead><tr><th>{t("tokenNumber")}</th><th>{t("centre")}</th><th>{t("date")}</th><th>{t("time")}</th><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("status")}</th></tr></thead><tbody>{tokens.length?tokens.map(x=><tr key={x.token}><td>{x.token}</td><td>{x.centre}</td><td>{x.date}</td><td>{x.time}</td><td>{farmer.crop}</td><td>{farmer.quantity}</td><td>{x.status}</td></tr>):<tr><td colSpan="7">{t("noPurchasingDetails")}</td></tr>}</tbody></table></div><h3>{t("paymentDetails")}</h3><div className="table-wrap"><table><thead><tr><th>{t("month")}</th><th>{t("received")}</th><th>{t("pendingAmount")}</th></tr></thead><tbody>{paymentHistoryData.map(x=><tr key={x.month}><td>{x.month}</td><td>₹{x.received.toLocaleString("en-IN")}</td><td>₹{x.pending.toLocaleString("en-IN")}</td></tr>)}</tbody></table></div><h3>{t("paymentChart")}</h3><div className="report-chart"><ResponsiveContainer width="100%" height={300}><BarChart data={paymentHistoryData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Bar dataKey="received" name={t("received")} fill="#1f8f5f"/><Bar dataKey="pending" name={t("pendingAmount")} fill="#b9d9c6"/></BarChart></ResponsiveContainer></div><h3>{t("cropChart")}</h3><div className="report-chart"><ResponsiveContainer width="100%" height={300}><LineChart data={cropData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Line type="monotone" dataKey="quantity" name={t("quantitySold")} stroke="#1f8f5f" strokeWidth={3}/></LineChart></ResponsiveContainer></div></div></section>}
+function FarmerAnalysis({farmer,t,tokens=[]}){const cropData=cropSalesHistoryData[farmer.id]||cropSalesHistoryData.F001;const totalSold=cropData.reduce((s,x)=>s+x.quantity,0);const received=paymentHistoryData.reduce((s,x)=>s+x.received,0);const pending=paymentHistoryData.reduce((s,x)=>s+x.pending,0);return <section className="analysis-report-area"><div className="analysis-toolbar"><div><PageHead title={t("analysisTitle")} text={t("analysisDesc")} t={t}/></div><button className="report-button generate-report-button" onClick={()=>window.print()}>📄 {t("generateReport")}</button></div><div className="analysis-cards farmer-analysis-summary"><div className="analysis-card"><span>{t("totalCropSold")}</span><strong>{totalSold.toLocaleString()}</strong><small>{t("kg")}</small></div><div className="analysis-card"><span>{t("totalPayments")}</span><strong>₹{received.toLocaleString("en-IN")}</strong><small>{t("received")}</small></div><div className="analysis-card"><span>{t("pendingAmount")}</span><strong>₹{pending.toLocaleString("en-IN")}</strong><small>{t("pending")}</small></div><div className="analysis-card"><span>{t("transactions")}</span><strong>{paymentHistoryData.length}</strong><small>{t("status")}</small></div></div><div className="analysis-chart-grid"><div className="analysis-chart-card"><h2>{t("paymentHistory")}</h2><p className="chart-description">{t("paymentHistoryDesc")}</p><ResponsiveContainer width="100%" height={320}><BarChart data={paymentHistoryData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Bar dataKey="received" name={t("received")} fill="#1f8f5f" radius={[6,6,0,0]}/><Bar dataKey="pending" name={t("pendingAmount")} fill="#b9d9c6" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></div><div className="analysis-chart-card"><h2>{t("cropSalesHistory")}</h2><p className="chart-description">{t("cropSalesHistoryDesc")}</p><ResponsiveContainer width="100%" height={320}><LineChart data={cropData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Line type="monotone" dataKey="quantity" name={t("quantitySold")} stroke="#1f8f5f" strokeWidth={3} dot={{r:4}}/></LineChart></ResponsiveContainer></div></div><div className="advisory-section"><div className="advisory-heading"><div><h2>{t("cropAdvisory")}</h2><p>{t("cropAdvisoryDesc")}</p></div></div><div className="analysis-chart-card"><h2>{t("advisoryGraph")}</h2><p className="chart-description">{t("advisoryGraphDesc")}</p><ResponsiveContainer width="100%" height={360}><LineChart data={rajasthanSellingAdvisory}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis domain={[0,5]} ticks={[1,2,3,4,5]}/><Tooltip/><Legend/><Line type="monotone" dataKey="wheat" name={t("wheat")} stroke="#1f8f5f" strokeWidth={3}/><Line type="monotone" dataKey="mustard" name={t("mustard")} stroke="#d4a72c" strokeWidth={3}/><Line type="monotone" dataKey="bajra" name={t("bajra")} stroke="#8b6f47" strokeWidth={3}/><Line type="monotone" dataKey="maize" name={t("maize")} stroke="#e28a2b" strokeWidth={3}/><Line type="monotone" dataKey="gram" name={t("gram")} stroke="#6f8f45" strokeWidth={3}/></LineChart></ResponsiveContainer></div><div className="farmer-advisory-highlight"><div><span className="eyebrow">🌾 {t("recommendedCrop")}</span><h3>{t((String(farmer.crop||"").toLowerCase()==="wheat"?"wheat":String(farmer.crop||"").toLowerCase()==="mustard"?"mustard":String(farmer.crop||"").toLowerCase()==="bajra"?"bajra":String(farmer.crop||"").toLowerCase()==="maize"?"maize":"gram"))}</h3><p>{t("bestSellingWindow")}: <strong>{advisoryCropWindows[String(farmer.crop||"").toLowerCase()==="wheat"?"wheat":String(farmer.crop||"").toLowerCase()==="mustard"?"mustard":String(farmer.crop||"").toLowerCase()==="bajra"?"bajra":String(farmer.crop||"").toLowerCase()==="maize"?"maize":"gram"]}</strong></p></div><div className="advisory-highlight-note">{t("advisoryNote")}</div></div><div className="advisory-grid">{advisoryCropKeys.map(key=><div className="advisory-card" key={key}><strong>{t(key)}</strong><span>{t("bestSellingWindow")}</span><b>{advisoryCropWindows[key]}</b></div>)}</div><div className="data-note">ℹ️ {t("advisoryNote")}</div></div><div className="data-note">ℹ️ {t("demoDataNote")}</div><div className="print-only-report-details"><div className="print-report-heading"><div className="report-brand"><img src="/assets/images/procura-logo.png" alt="Procura"/><div><strong>{t("agroVision")}</strong><span>{t("smartProcurement")}</span></div></div><h2>{t("farmerCompleteReport")}</h2><p>{t("farmerCompleteReportDesc")}</p></div><h3>{t("farmerDetails")}</h3><div className="table-wrap"><table><tbody><tr><th>{t("farmerId")}</th><td>{farmer.id}</td><th>{t("name")}</th><td>{farmer.name}</td></tr><tr><th>{t("mobileNumber")}</th><td>{farmer.mobile}</td><th>{t("village")}</th><td>{farmer.village}</td></tr><tr><th>{t("district")}</th><td>{farmer.district}</td><th>{t("crop")}</th><td>{farmer.crop}</td></tr><tr><th>{t("quantity")}</th><td>{farmer.quantity}</td><th>{t("accountStatus")}</th><td>{farmer.status}</td></tr></tbody></table></div><h3>{t("purchasingDetails")}</h3><div className="table-wrap"><table><thead><tr><th>{t("tokenNumber")}</th><th>{t("centre")}</th><th>{t("date")}</th><th>{t("time")}</th><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("status")}</th></tr></thead><tbody>{tokens.length?tokens.map(x=><tr key={x.token}><td>{x.token}</td><td>{x.centre}</td><td>{x.date}</td><td>{x.time}</td><td>{farmer.crop}</td><td>{farmer.quantity}</td><td>{x.status}</td></tr>):<tr><td colSpan="7">{t("noPurchasingDetails")}</td></tr>}</tbody></table></div><h3>{t("paymentDetails")}</h3><div className="table-wrap"><table><thead><tr><th>{t("month")}</th><th>{t("received")}</th><th>{t("pendingAmount")}</th></tr></thead><tbody>{paymentHistoryData.map(x=><tr key={x.month}><td>{x.month}</td><td>₹{x.received.toLocaleString("en-IN")}</td><td>₹{x.pending.toLocaleString("en-IN")}</td></tr>)}</tbody></table></div><h3>{t("paymentChart")}</h3><div className="report-chart"><ResponsiveContainer width="100%" height={300}><BarChart data={paymentHistoryData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Bar dataKey="received" name={t("received")} fill="#1f8f5f"/><Bar dataKey="pending" name={t("pendingAmount")} fill="#b9d9c6"/></BarChart></ResponsiveContainer></div><h3>{t("cropChart")}</h3><div className="report-chart"><ResponsiveContainer width="100%" height={300}><LineChart data={cropData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Line type="monotone" dataKey="quantity" name={t("quantitySold")} stroke="#1f8f5f" strokeWidth={3}/></LineChart></ResponsiveContainer></div></div></section>}
 
 function FarmerGPS({centres,t,language}){
   const [coords,setCoords]=useState(null);
@@ -1036,43 +1131,87 @@ function getCentreStats(centre,tokens=[]){
   return {normalAllocation,priorityAllocation,usedNormal,usedPriority,occupied,availableSlots:Math.max(0,centre.capacity-occupied),normalAvailable:Math.max(0,normalAllocation-usedNormal),priorityAvailable:Math.max(0,priorityAllocation-usedPriority)};
 }
 
-function CentreCapacity({centres,tokens,waitingList,setCentres,t}){
-  const [slotInputs,setSlotInputs]=useState({});
-  const [slotMessage,setSlotMessage]=useState("");
-  const increaseSlots=(centreId)=>{
-    const amount=Number(slotInputs[centreId]||0);
-    if(!Number.isInteger(amount)||amount<=0){
-      setSlotMessage(t("invalidSlotIncrease"));
+function CreateSlotForm({centres,setSlots,t}){
+  const [form,setForm]=useState({centreId:centres[0]?.id||"",date:getTodayDateString(),timeWindow:"09:00 AM",generalCapacity:"",priorityCapacity:""});
+  const [message,setMessage]=useState("");
+  const [error,setError]=useState("");
+  const [submitting,setSubmitting]=useState(false);
+  const submitSlot=async(e)=>{
+    e.preventDefault();
+    setError("");setMessage("");
+    if(!form.centreId||!form.date||!form.timeWindow||!form.generalCapacity||Number(form.generalCapacity)<=0){
+      setError(t("selectRequired"));
       return;
     }
-    setCentres(prev=>prev.map(c=>c.id===centreId?{...c,capacity:c.capacity+amount,status:c.today>=c.capacity+amount?"Full":"Open"}:c));
-    setSlotInputs(prev=>({...prev,[centreId]:""}));
-    setSlotMessage(`${amount} ${t("slotsAdded")}`);
-    setTimeout(()=>setSlotMessage(""),3000);
+    setSubmitting(true);
+    try{
+      const payload={centre_id:form.centreId,date:form.date,time_window:form.timeWindow,general_capacity:Number(form.generalCapacity),priority_capacity:Number(form.priorityCapacity||0)};
+      const created=await apiRequest("/slots",{method:"POST",body:JSON.stringify(payload)});
+      setSlots(prev=>[...prev,created]);
+      setMessage(t("slotCreated"));
+      setTimeout(()=>setMessage(""),3000);
+    }catch(err){
+      setError(err.message||t("slotCreateFailed"));
+    }finally{
+      setSubmitting(false);
+    }
   };
-  return <section><PageHead title={t("centreCapacityTitle")} text={t("centreCapacityDesc")} t={t}/>{slotMessage&&<div className="success-banner">✓ {slotMessage}</div>}<div className="capacity-dashboard-grid">{centres.map(c=>{const s=getCentreStats(c,tokens);const isFull=s.availableSlots<=0;const waiting=waitingList.filter(x=>x.centreId===c.id&&x.status==="Waiting").length;return <Card key={c.id}><div className="centre-title"><div><span className="eyebrow">📍 {c.location}</span><h3>{c.name}</h3></div><span className={"badge "+(isFull?"red":"green")}>{isFull?t("fullStatus"):t("availableStatus")}</span></div><div className="capacity-meter"><div style={{width:`${Math.min(100,(s.occupied/c.capacity)*100)}%`}}/></div><div className="capacity-big"><strong>{s.occupied}</strong><span>/ {c.capacity} {t("occupiedSlots")}</span></div><div className="capacity-metrics"><div><small>{t("availableSlots")}</small><b>{s.availableSlots}</b></div><div><small>{t("normalAllocation")}</small><b>{s.normalAllocation}</b></div><div><small>{t("priorityAllocation")}</small><b>{s.priorityAllocation}</b></div><div><small>{t("waitingList")}</small><b>{waiting}</b></div></div><div className="allocation-row"><span>{t("normalBooking")}</span><b>{s.usedNormal} / {s.normalAllocation}</b></div><div className="allocation-row"><span>{t("priorityBooking")}</span><b>{s.usedPriority} / {s.priorityAllocation}</b></div><div className="capacity-increase-box"><div><b>{t("increaseSlots")}</b><small>{t("addSlotsHint")}</small></div><div className="capacity-increase-controls"><input type="number" min="1" step="1" inputMode="numeric" placeholder={t("addSlotsPlaceholder")} value={slotInputs[c.id]??""} onChange={e=>setSlotInputs(prev=>({...prev,[c.id]:e.target.value}))}/><button type="button" className="small-btn" onClick={()=>increaseSlots(c.id)}>{t("increaseSlots")}</button></div></div></Card>})}</div></section>
+  return <Card title={t("createSlot")}>
+    <form onSubmit={submitSlot} className="create-slot-form">
+      <div className="form-group"><label>{t("selectProcurementCentre")}</label><select value={form.centreId} onChange={e=>setForm(prev=>({...prev,centreId:e.target.value}))}>{centres.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+      <div className="form-group"><label>{t("date")}</label><input type="date" min={getTodayDateString()} value={form.date} onChange={e=>setForm(prev=>({...prev,date:e.target.value}))}/></div>
+      <div className="form-group"><label>{t("time")}</label><input value={form.timeWindow} placeholder="10:00 AM" onChange={e=>setForm(prev=>({...prev,timeWindow:e.target.value}))}/></div>
+      <div className="form-group"><label>{t("normalAllocation")}</label><input type="number" min="1" value={form.generalCapacity} onChange={e=>setForm(prev=>({...prev,generalCapacity:e.target.value}))}/></div>
+      <div className="form-group"><label>{t("priorityAllocation")}</label><input type="number" min="0" value={form.priorityCapacity} onChange={e=>setForm(prev=>({...prev,priorityCapacity:e.target.value}))}/></div>
+      <button className="primary" type="submit" disabled={submitting}>{submitting?t("submitting"):t("createSlot")}</button>
+    </form>
+    {message&&<div className="success-banner">✓ {message}</div>}
+    {error&&<div className="gps-error">⚠️ {error}</div>}
+  </Card>;
+}
+
+function CentreCapacity({centres,tokens,waitingList,setCentres,slots,setSlots,t}){
+  const [slotInputs,setSlotInputs]=useState({});
+  const [slotMessage,setSlotMessage]=useState("");
+  const increaseSlots=async(centre)=>{
+    const amount=Number(slotInputs[centre.id]||0);
+    if(!Number.isInteger(amount)||amount<=0){setSlotMessage(t("invalidSlotIncrease"));return;}
+    const targetSlot=slots.find(s=>String(s.centre_id)===String(centre.id) && String(s.date)>=getTodayDateString()) || slots.find(s=>String(s.centre_id)===String(centre.id));
+    const payload={date:targetSlot?.date||getTodayDateString(),time_window:targetSlot?.time_window||"09:00 AM - 11:00 AM",additional_general:amount,additional_priority:0};
+    try{
+      const result=await apiRequest(`/centres/${centre.id}/increase-slots`,{method:"POST",body:JSON.stringify(payload)});
+      const updated=result.slot;
+      setSlots(prev=>{const exists=prev.some(s=>s.id===updated.id);return exists?prev.map(s=>s.id===updated.id?{...s,...updated,centre_name:centre.name}:s):[...prev,{...updated,centre_name:centre.name}]});
+      setCentres(prev=>prev.map(c=>c.id===centre.id?{...c,capacity:(c.capacity||0)+amount,today:c.today||0}:c));
+      setSlotInputs(prev=>({...prev,[centre.id]:""}));setSlotMessage(`${amount} ${t("slotsAdded")}`);setTimeout(()=>setSlotMessage(""),3000);
+    }catch(err){setSlotMessage(err.message||t("slotCreateFailed"));}
+  };
+  return <section><PageHead title={t("centreCapacityTitle")} text={t("centreCapacityDesc")} t={t}/>{setSlots&&<CreateSlotForm centres={centres} setSlots={setSlots} t={t}/>}{slotMessage&&<div className="success-banner">✓ {slotMessage}</div>}<div className="capacity-dashboard-grid">{centres.map(c=>{const s=getCentreStats(c,tokens);const isFull=s.availableSlots<=0;const waiting=waitingList.filter(x=>x.centreId===c.id&&x.status==="Waiting").length;return <Card key={c.id}><div className="centre-title"><div><span className="eyebrow">📍 {c.location}</span><h3>{c.name}</h3></div><span className={"badge "+(isFull?"red":"green")}>{isFull?t("fullStatus"):t("availableStatus")}</span></div><div className="capacity-meter"><div style={{width:`${Math.min(100,(s.occupied/c.capacity)*100)}%`}}/></div><div className="capacity-big"><strong>{s.occupied}</strong><span>/ {c.capacity} {t("occupiedSlots")}</span></div><div className="capacity-metrics"><div><small>{t("availableSlots")}</small><b>{s.availableSlots}</b></div><div><small>{t("normalAllocation")}</small><b>{s.normalAllocation}</b></div><div><small>{t("priorityAllocation")}</small><b>{s.priorityAllocation}</b></div><div><small>{t("waitingList")}</small><b>{waiting}</b></div></div><div className="allocation-row"><span>{t("normalBooking")}</span><b>{s.usedNormal} / {s.normalAllocation}</b></div><div className="allocation-row"><span>{t("priorityBooking")}</span><b>{s.usedPriority} / {s.priorityAllocation}</b></div><div className="capacity-increase-box"><div><b>{t("increaseSlots")}</b><small>{t("addSlotsHint")}</small></div><div className="capacity-increase-controls"><input type="number" min="1" step="1" inputMode="numeric" placeholder={t("addSlotsPlaceholder")} value={slotInputs[c.id]??""} onChange={e=>setSlotInputs(prev=>({...prev,[c.id]:e.target.value}))}/><button type="button" className="small-btn" onClick={()=>increaseSlots(c)}>{t("increaseSlots")}</button></div></div></Card>})}</div></section>
 }
 
 function AdminWaitingList({waitingList,t}){
   return <section><PageHead title={t("adminWaitingList")} text={t("centreCapacityDesc")} t={t}/><Card><div className="table-wrap"><table><thead><tr><th>{t("queuePosition")}</th><th>{t("farmer")}</th><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("centre")}</th><th>{t("requestDate")}</th><th>{t("requestedSlot")}</th><th>{t("requestType")}</th><th>{t("reason")}</th><th>{t("status")}</th></tr></thead><tbody>{waitingList.length?waitingList.map((x,i)=><tr key={x.id}><td><b>#{x.queuePosition||i+1}</b></td><td>{x.farmer}</td><td>{x.crop}</td><td>{x.quantity}</td><td>{x.centre}</td><td>{x.date}</td><td>{x.time}</td><td><span className="badge yellow">{x.bookingType==="priority"?t("priorityBooking"):t("normalBooking")}</span></td><td>{x.priorityReason==="requiredTime"?t("reasonRequiredTime"):x.priorityReason==="other"?t("reasonOther"):t("reasonNoSlot")}</td><td><span className="badge yellow">{t("pendingReview")}</span></td></tr>):<tr><td colSpan="10">{t("noWaitingRequests")}</td></tr>}</tbody></table></div></Card></section>
 }
 
-function FarmerReports({farmer,tokens,t}){const cropData=cropSalesHistoryData[farmer.id]||cropSalesHistoryData.F001;const totalSold=cropData.reduce((s,x)=>s+x.quantity,0);return <section className="report-page"><PageHead title={t("reportsTitle")} text={t("reportsDesc")} t={t}/><div className="report-toolbar"><div><b>{t("reportsTitle")}</b><span>{t("reportReady")}</span></div><button className="report-button" onClick={()=>window.print()}>📄 {t("generateReport")}</button></div><div className="report-sheet"><div className="report-brand"><img src="/assets/images/agro-vision-logo-transparent.png" alt="Agro Vision"/><div><strong>{t("agroVision")}</strong><span>{t("smartProcurement")}</span></div></div><h2>{t("reportsTitle")}</h2><div className="report-summary-grid"><div><small>{t("farmerId")}</small><b>{farmer.id}</b></div><div><small>{t("name")}</small><b>{farmer.name}</b></div><div><small>{t("mobileNumber")}</small><b>{farmer.mobile}</b></div><div><small>{t("village")}</small><b>{farmer.village}</b></div><div><small>{t("district")}</small><b>{farmer.district}</b></div><div><small>{t("crop")}</small><b>{farmer.crop}</b></div><div><small>{t("quantity")}</small><b>{farmer.quantity}</b></div><div><small>{t("totalCropSold")}</small><b>{totalSold.toLocaleString()} {t("kg")}</b></div><div><small>{t("accountStatus")}</small><b>{farmer.status}</b></div></div><h3>{t("cropSalesHistory")}</h3><div className="table-wrap"><table><thead><tr><th>{t("month")}</th><th>{t("crop")}</th><th>{t("quantitySold")}</th></tr></thead><tbody>{cropData.map(x=><tr key={x.month}><td>{x.month}</td><td>{farmer.crop}</td><td>{x.quantity.toLocaleString()}</td></tr>)}</tbody></table></div><h3>{t("queueStatus")}</h3><div className="table-wrap"><table><thead><tr><th>{t("tokenNumber")}</th><th>{t("centre")}</th><th>{t("date")}</th><th>{t("status")}</th></tr></thead><tbody>{tokens.length?tokens.map(x=><tr key={x.token}><td>{x.token}</td><td>{x.centre}</td><td>{x.date}</td><td>{x.status}</td></tr>):<tr><td colSpan="4">{t("noToken")}</td></tr>}</tbody></table></div><h3>{t("paymentChart")}</h3><div className="report-chart"><ResponsiveContainer width="100%" height={300}><BarChart data={paymentHistoryData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Bar dataKey="received" name={t("received")} fill="#1f8f5f"/><Bar dataKey="pending" name={t("pendingAmount")} fill="#b9d9c6"/></BarChart></ResponsiveContainer></div><h3>{t("cropChart")}</h3><div className="report-chart"><ResponsiveContainer width="100%" height={300}><LineChart data={cropData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Line type="monotone" dataKey="quantity" name={t("quantitySold")} stroke="#1f8f5f" strokeWidth={3}/></LineChart></ResponsiveContainer></div><h3>{t("advisoryGraph")}</h3><div className="report-chart"><ResponsiveContainer width="100%" height={330}><LineChart data={rajasthanSellingAdvisory}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis domain={[0,5]}/><Tooltip/><Legend/><Line type="monotone" dataKey="wheat" name={t("wheat")} stroke="#1f8f5f"/><Line type="monotone" dataKey="mustard" name={t("mustard")} stroke="#d4a72c"/><Line type="monotone" dataKey="bajra" name={t("bajra")} stroke="#8b6f47"/><Line type="monotone" dataKey="maize" name={t("maize")} stroke="#e28a2b"/><Line type="monotone" dataKey="gram" name={t("gram")} stroke="#6f8f45"/></LineChart></ResponsiveContainer></div><div className="data-note">ℹ️ {t("advisoryNote")}</div><div className="report-footer">🌱 {t("agroVision")} · {t("smartProcurement")}</div></div></section>}
+function FarmerReports({farmer,tokens,t}){const cropData=cropSalesHistoryData[farmer.id]||cropSalesHistoryData.F001;const totalSold=cropData.reduce((s,x)=>s+x.quantity,0);return <section className="report-page"><PageHead title={t("reportsTitle")} text={t("reportsDesc")} t={t}/><div className="report-toolbar"><div><b>{t("reportsTitle")}</b><span>{t("reportReady")}</span></div><button className="report-button" onClick={()=>window.print()}>📄 {t("generateReport")}</button></div><div className="report-sheet"><div className="report-brand"><img src="/assets/images/procura-logo.png" alt="Procura"/><div><strong>{t("agroVision")}</strong><span>{t("smartProcurement")}</span></div></div><h2>{t("reportsTitle")}</h2><div className="report-summary-grid"><div><small>{t("farmerId")}</small><b>{farmer.id}</b></div><div><small>{t("name")}</small><b>{farmer.name}</b></div><div><small>{t("mobileNumber")}</small><b>{farmer.mobile}</b></div><div><small>{t("village")}</small><b>{farmer.village}</b></div><div><small>{t("district")}</small><b>{farmer.district}</b></div><div><small>{t("crop")}</small><b>{farmer.crop}</b></div><div><small>{t("quantity")}</small><b>{farmer.quantity}</b></div><div><small>{t("totalCropSold")}</small><b>{totalSold.toLocaleString()} {t("kg")}</b></div><div><small>{t("accountStatus")}</small><b>{farmer.status}</b></div></div><h3>{t("cropSalesHistory")}</h3><div className="table-wrap"><table><thead><tr><th>{t("month")}</th><th>{t("crop")}</th><th>{t("quantitySold")}</th></tr></thead><tbody>{cropData.map(x=><tr key={x.month}><td>{x.month}</td><td>{farmer.crop}</td><td>{x.quantity.toLocaleString()}</td></tr>)}</tbody></table></div><h3>{t("queueStatus")}</h3><div className="table-wrap"><table><thead><tr><th>{t("tokenNumber")}</th><th>{t("centre")}</th><th>{t("date")}</th><th>{t("status")}</th></tr></thead><tbody>{tokens.length?tokens.map(x=><tr key={x.token}><td>{x.token}</td><td>{x.centre}</td><td>{x.date}</td><td>{x.status}</td></tr>):<tr><td colSpan="4">{t("noToken")}</td></tr>}</tbody></table></div><h3>{t("paymentChart")}</h3><div className="report-chart"><ResponsiveContainer width="100%" height={300}><BarChart data={paymentHistoryData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Bar dataKey="received" name={t("received")} fill="#1f8f5f"/><Bar dataKey="pending" name={t("pendingAmount")} fill="#b9d9c6"/></BarChart></ResponsiveContainer></div><h3>{t("cropChart")}</h3><div className="report-chart"><ResponsiveContainer width="100%" height={300}><LineChart data={cropData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Line type="monotone" dataKey="quantity" name={t("quantitySold")} stroke="#1f8f5f" strokeWidth={3}/></LineChart></ResponsiveContainer></div><h3>{t("advisoryGraph")}</h3><div className="report-chart"><ResponsiveContainer width="100%" height={330}><LineChart data={rajasthanSellingAdvisory}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis domain={[0,5]}/><Tooltip/><Legend/><Line type="monotone" dataKey="wheat" name={t("wheat")} stroke="#1f8f5f"/><Line type="monotone" dataKey="mustard" name={t("mustard")} stroke="#d4a72c"/><Line type="monotone" dataKey="bajra" name={t("bajra")} stroke="#8b6f47"/><Line type="monotone" dataKey="maize" name={t("maize")} stroke="#e28a2b"/><Line type="monotone" dataKey="gram" name={t("gram")} stroke="#6f8f45"/></LineChart></ResponsiveContainer></div><div className="data-note">ℹ️ {t("advisoryNote")}</div><div className="report-footer">🌱 {t("agroVision")} · {t("smartProcurement")}</div></div></section>}
 
 function OperatorApp({tokens=[],farmers=[],onLogout,t}){
   const [page,setPage]=useState("tokens");
-  return <div className="layout"><Sidebar title={t("operatorPortal")||"Operator Portal"} items={[["tokens",t("todaysTokens"),"🎫"],["verification",t("produceVerification"),"⚖️"]]} page={page} setPage={setPage} onLogout={onLogout} t={t}/><main className="content">{page==="tokens"&&<TokenManagement tokens={tokens} t={t}/>} {page==="verification"&&<Verification farmers={farmers} t={t}/>}</main></div>;
+  return <div className="layout"><Sidebar title={t("operatorPortal")||"Operator Portal"} items={[["tokens",t("todaysTokens"),"🎫"],["verification",t("produceVerification"),"⚖️"]]} page={page} setPage={setPage} onLogout={onLogout} t={t}/><main className="content">{page==="tokens"&&<TokenManagement tokens={tokens} t={t}/>} {page==="verification"&&<Verification farmers={farmers} tokens={tokens} t={t}/>}</main></div>;
 }
 
 function AdminApp({
   farmers,
   centres,
   tokens,
+  slots,
+  setSlots,
   waitingList,
   setCentres,
   onLogout,
   t,
-  addSalePaymentNotification
+  addSalePaymentNotification,
+  adminStats
 }) {
 
   const [page, setPage] = useState("dashboard");
@@ -1144,9 +1283,9 @@ function AdminApp({
           />
         }
 
-        {page === "payments" && <AdminPayments t={t} onPaymentCompleted={addSalePaymentNotification}/>}
+        {page === "payments" && <AdminPayments t={t} tokens={tokens}/>}
 
-        {page === "capacity" && <CentreCapacity centres={centres} tokens={tokens} waitingList={waitingList} setCentres={setCentres} t={t}/>}
+        {page === "capacity" && <CentreCapacity centres={centres} tokens={tokens} waitingList={waitingList} setCentres={setCentres} slots={slots} setSlots={setSlots} t={t}/>}
         {page === "waiting" && <AdminWaitingList waitingList={waitingList} t={t}/>}
 
         {/* NEW ANALYSIS PAGE */}
@@ -1160,29 +1299,66 @@ function AdminApp({
   );
 }
 
-function AdminDashboard({farmers,centres,tokens,t}){return <section><PageHead title={t("adminDashboard")} text={t("centralizedManagement")}/><div className="stats"><Stat icon="👨‍🌾" label={t("registeredFarmers")} value={farmers.length}/><Stat icon="🎫" label={t("todaysTokens")} value={tokens.length}/><Stat icon="📦" label={t("completedProcurement")} value="18"/><Stat icon="💰" label={t("pendingPayments")} value="7"/></div><div className="grid2"><Card title={t("centreWiseCapacity")}><table><thead><tr><th>{t("centre")}</th><th>{t("location")}</th><th>{t("today")}</th><th>{t("capacityOnly")}</th><th>{t("status")}</th></tr></thead><tbody>{centres.map(c=><tr key={c.id}><td>{c.name}</td><td>{c.location}</td><td>{c.today}</td><td>{c.capacity}</td><td><span className={"badge "+(c.status==="Open"?"green":"red")}>{c.status==="Open"?t("open"):t("full")}</span></td></tr>)}</tbody></table></Card><Card title={t("recentTokens")}>{tokens.map(x=><div className="mini-row" key={x.token}><b>{x.token}</b><span>{x.farmer}</span><span>{x.time}</span><span className="badge green">{x.status}</span></div>)}</Card></div></section>}
+function AdminDashboard({farmers,centres,tokens,stats,t}){
+  const completed=stats?.status_breakdown?.filter(x=>x.status==="Processed").reduce((a,x)=>a+x.count,0) ?? tokens.filter(x=>x.status==="Processed").length;
+  const pendingPayments=stats?.payment_summary?.find(x=>x.status==="Pending")?.count ?? tokens.filter(x=>x.payment_status==="Pending").length;
+  return <section><PageHead title={t("adminDashboard")} text={t("centralizedManagement")} t={t}/><div className="stats"><Stat icon="👨‍🌾" label={t("registeredFarmers")} value={stats?.total_farmers ?? farmers.length}/><Stat icon="🎫" label={t("todaysTokens")} value={stats?.total_bookings ?? tokens.length}/><Stat icon="📦" label={t("completedProcurement")} value={completed}/><Stat icon="💰" label={t("pendingPayments")} value={pendingPayments}/></div><div className="grid2"><Card title={t("centreWiseCapacity")}><table><thead><tr><th>{t("centre")}</th><th>{t("location")}</th><th>{t("today")}</th><th>{t("capacityOnly")}</th><th>{t("status")}</th></tr></thead><tbody>{centres.map(c=><tr key={c.id}><td>{c.name}</td><td>{c.location}</td><td>{c.today}</td><td>{c.capacity}</td><td><span className={"badge "+(c.status==="Open"?"green":"red")}>{c.status==="Open"?t("open"):t("full")}</span></td></tr>)}</tbody></table></Card><Card title={t("recentTokens")}>{tokens.slice(0,8).map(x=><div className="mini-row" key={x.token}><b>{x.token}</b><span>{x.farmer}</span><span>{x.time}</span><span className="badge green">{x.status}</span></div>)}{!tokens.length&&<Empty text={t("noPurchasingDetails")}/>}</Card></div></section>}
 
 function FarmerManagement({farmers,search,setSearch,t}){const data=farmers.filter(f=>f.name.toLowerCase().includes(search.toLowerCase())||f.id.toLowerCase().includes(search.toLowerCase()));return <section><PageHead title={t("registeredFarmers")} text={t("viewManageRecords")}/><Card><input className="search" placeholder={t("searchFarmer")} value={search} onChange={e=>setSearch(e.target.value)}/><table><thead><tr><th>ID</th><th>{t("farmer")}</th><th>{t("mobileNumber")}</th><th>{t("location")}</th><th>{t("crop")}</th><th>{t("status")}</th></tr></thead><tbody>{data.map(f=><tr key={f.id}><td>{f.id}</td><td><b>{f.name}</b></td><td>{f.mobile}</td><td>{f.village}, {f.district}</td><td>{f.crop}</td><td><span className={"badge "+(f.status==="Active"?"green":"yellow")}>{f.status}</span></td></tr>)}</tbody></table></Card></section>}
 
 function CentreManagement({centres,setCentres,t}){
-  const [slotInputs,setSlotInputs]=useState({});
-  const [slotMessage,setSlotMessage]=useState("");
-  const increaseSlots=(centreId)=>{
-    const amount=Number(slotInputs[centreId]||0);
-    if(!Number.isInteger(amount)||amount<=0){setSlotMessage(t("invalidSlotIncrease"));return;}
-    setCentres(prev=>prev.map(c=>c.id===centreId?{...c,capacity:c.capacity+amount,status:c.today>=c.capacity+amount?"Full":"Open"}:c));
-    setSlotInputs(prev=>({...prev,[centreId]:""}));
-    setSlotMessage(`${amount} ${t("slotsAdded")}`);
-    setTimeout(()=>setSlotMessage(""),3000);
+  const [form,setForm]=useState({name:"",location:"",capacity:""});
+  const [message,setMessage]=useState("");
+  const [error,setError]=useState("");
+  const [submitting,setSubmitting]=useState(false);
+
+  const submitCentre=async(e)=>{
+    e.preventDefault();
+    setError("");setMessage("");
+    if(!form.name||!form.location||!form.capacity||Number(form.capacity)<=0){
+      setError(t("selectRequired"));
+      return;
+    }
+    setSubmitting(true);
+    try{
+      const payload={name:form.name,address:form.location};
+      const created=await apiRequest("/centres",{method:"POST",body:JSON.stringify(payload)});
+      setCentres(prev=>[...prev,mapCentreFromApi(created)]);
+      setForm({name:"",location:"",capacity:""});
+      setMessage(t("centreCreated"));
+      setTimeout(()=>setMessage(""),3000);
+    }catch(err){
+      setError(err.message||t("centreCreateFailed"));
+    }finally{
+      setSubmitting(false);
+    }
   };
-  return <section><PageHead title={t("procurementCentres")} text={t("manageCapacity")}/>{slotMessage&&<div className="success-banner">✓ {slotMessage}</div>}<div className="centre-admin-grid">{centres.map(c=>{const isFull=c.today>=c.capacity;return <Card key={c.id}><div className="centre-title"><div className="big-icon">📍</div><span className={"badge "+(isFull?"red":"green")}>{isFull?t("full"):t("open")}</span></div><h3>{c.name}</h3><p>{c.location}</p><div className="progress"><div style={{width:`${Math.min(100,c.today/c.capacity*100)}%`}}/></div><small>{c.today} / {c.capacity} {t("tokensUsedToday")}</small><div className="capacity-increase-box compact"><b>{t("increaseSlots")}</b><small>{t("addSlotsHint")}</small><div className="capacity-increase-controls"><input type="number" min="1" step="1" inputMode="numeric" placeholder={t("addSlotsPlaceholder")} value={slotInputs[c.id]??""} onChange={e=>setSlotInputs(prev=>({...prev,[c.id]:e.target.value}))}/><button type="button" className="small-btn" onClick={()=>increaseSlots(c.id)}>{t("increaseSlots")}</button></div></div><button className="secondary full" onClick={()=>setCentres(prev=>prev.map(x=>x.id===c.id?{...x,status:x.status==="Open"?"Full":"Open"}:x))}>{t("toggleStatus")}</button></Card>})}</div></section>
+
+  return <section>
+    <PageHead title={t("procurementCentres")} text={t("manageCapacity")}/>
+    <Card title={t("createCentre")}>
+      <form onSubmit={submitCentre} className="create-centre-form">
+        <div className="form-group"><label>{t("centreName")}</label><input value={form.name} onChange={e=>setForm(prev=>({...prev,name:e.target.value}))} placeholder={t("centreNamePlaceholder")}/></div>
+        <div className="form-group"><label>{t("location")}</label><input value={form.location} onChange={e=>setForm(prev=>({...prev,location:e.target.value}))} placeholder={t("centreLocationPlaceholder")}/></div>
+        <div className="form-group"><label>{t("capacity")}</label><input type="number" min="1" value={form.capacity} onChange={e=>setForm(prev=>({...prev,capacity:e.target.value}))} placeholder={t("centreCapacityPlaceholder")}/></div>
+        <button className="primary" type="submit" disabled={submitting}>{submitting?t("submitting"):t("createCentre")}</button>
+      </form>
+      {message&&<div className="success-banner">✓ {message}</div>}
+      {error&&<div className="gps-error">⚠️ {error}</div>}
+    </Card>
+    <div className="centre-admin-grid">{centres.map(c=>{const isFull=c.today>=c.capacity;return <Card key={c.id}><div className="centre-title"><div className="big-icon">📍</div><span className={"badge "+(isFull?"red":"green")}>{isFull?t("full"):t("open")}</span></div><h3>{c.name}</h3><p>{c.location}</p><div className="progress"><div style={{width:`${Math.min(100,c.today/c.capacity*100)}%`}}/></div><small>{c.today} / {c.capacity} {t("tokensUsedToday")}</small></Card>})}</div>
+  </section>;
 }
 
 function TokenManagement({tokens,t}){return <section><PageHead title={t("todaysTokens")} text={t("manageQueue")}/><Card><table><thead><tr><th>{t("tokenNumber")}</th><th>{t("farmer")}</th><th>{t("centre")}</th><th>{t("time")}</th><th>{t("queue")}</th><th>{t("status")}</th></tr></thead><tbody>{tokens.map(x=><tr key={x.token}><td><b>{x.token}</b></td><td>{x.farmer}</td><td>{x.centre}</td><td>{x.time}</td><td>#{x.queue}</td><td><span className="badge green">{x.status}</span></td></tr>)}</tbody></table></Card></section>}
 
-function Verification({farmers,t}){return <section><PageHead title={t("produceVerification")} text={t("verifyProduce")}/><Card><table><thead><tr><th>{t("farmer")}</th><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("quality")}</th><th>{t("action")}</th></tr></thead><tbody>{farmers.map(f=><tr key={f.id}><td>{f.name}</td><td>{f.crop}</td><td>{f.quantity}</td><td><span className="badge yellow">{t("pending")}</span></td><td><button className="small-btn">{t("verify")}</button></td></tr>)}</tbody></table></Card></section>}
+function Verification({farmers,tokens=[],t}){const [rows,setRows]=useState(tokens.length?tokens:farmers);const verify=async(row)=>{const id=row.bookingId||row.booking_id;if(!id)return;try{await apiRequest(`/update-status/${id}`,{method:"PUT",body:JSON.stringify({status:"Verified"})});setRows(prev=>prev.map(x=>(x.bookingId||x.booking_id)===id?{...x,status:"Verified"}:x));}catch(err){alert(err.message);}};return <section><PageHead title={t("produceVerification")} text={t("verifyProduce")} t={t}/><Card><div className="table-wrap"><table><thead><tr><th>{t("farmer")}</th><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("quality")}</th><th>{t("action")}</th></tr></thead><tbody>{rows.length?rows.map(f=><tr key={f.token||f.id}><td>{f.farmer||f.name}</td><td>{f.crop||"—"}</td><td>{f.quantity||"—"}</td><td><span className={"badge "+(f.status==="Verified"||f.status==="Processed"?"green":"yellow")}>{f.status||t("pending")}</span></td><td>{f.bookingId||f.booking_id?<button className="small-btn" onClick={()=>verify(f)}>{t("verify")}</button>:"—"}</td></tr>):<tr><td colSpan="5">{t("noPurchasingDetails")}</td></tr>}</tbody></table></div></Card></section>}
 
-function AdminPayments({t,onPaymentCompleted}){const rows=[['F001','Ravi Kumar','₹1,25,000','Bank Transfer','Pending','Wheat','500 kg','Jaipur Central Procurement Centre'],['F002','Mohan Singh','₹87,500','Bank Transfer','Processed','Mustard','350 kg','Chomu Procurement Centre'],['F003','Sita Devi','₹50,000','Bank Transfer','Pending','Wheat','200 kg','Jaipur Central Procurement Centre']];const [paidIds,setPaidIds]=useState([]);return <section><PageHead title={t("paymentStatus")} text={t("monitorPayments")}/><Card><table><thead><tr><th>{t("farmer")}</th><th>{t("procurementAmount")}</th><th>{t("paymentMethod")}</th><th>{t("status")}</th><th>{t("action")}</th></tr></thead><tbody>{rows.map(r=>{const processed=r[4]==="Processed"||paidIds.includes(r[0]);return <tr key={r[0]}><td>{r[1]}</td><td>{r[2]}</td><td>{t("bankTransfer")}</td><td><span className={"badge "+(processed?"green":"yellow")}>{processed?t("processed"):t("pending")}</span></td><td>{processed?<span className="muted">✓ {t("processed")}</span>:<button type="button" className="small-btn" onClick={()=>{setPaidIds(prev=>[...prev,r[0]]);onPaymentCompleted?.({farmerId:r[0],farmer:r[1],crop:r[5],quantity:r[6],amount:r[2],centre:r[7],paymentStatus:"Paid",saleStatus:"Completed"});}}>{t("markPaid")}</button>}</td></tr>})}</tbody></table></Card></section>}
+function AdminPayments({t,tokens=[]}){
+  const [rows,setRows]=useState(tokens);
+  useEffect(()=>setRows(tokens),[tokens]);
+  const markPaid=async(row)=>{try{await apiRequest(`/update-payment/${row.bookingId||row.booking_id}`,{method:"PUT",body:JSON.stringify({payment_status:"Completed",payment_method:"Bank Transfer"})});setRows(prev=>prev.map(x=>x.token===row.token?{...x,payment_status:"Completed"}:x));}catch(err){alert(err.message);}};
+  return <section><PageHead title={t("paymentStatus")} text={t("monitorPayments")} t={t}/><Card><table><thead><tr><th>{t("farmer")}</th><th>{t("procurementAmount")}</th><th>{t("paymentMethod")}</th><th>{t("status")}</th><th>{t("action")}</th></tr></thead><tbody>{rows.length?rows.map(r=>{const completed=r.payment_status==="Completed";const amount=(Number(r.quantity)||0)*50;return <tr key={r.token||r.bookingId}><td>{r.farmer}</td><td>₹{amount.toLocaleString("en-IN")}</td><td>{t("bankTransfer")}</td><td><span className={"badge "+(completed?"green":"yellow")}>{completed?t("processed"):t("pending")}</span></td><td>{completed?<span className="muted">✓ {t("processed")}</span>:<button className="small-btn" onClick={()=>markPaid(r)}>{t("markPaid")}</button>}</td></tr>}):<tr><td colSpan="5">{t("noPurchasingDetails")}</td></tr>}</tbody></table></Card></section>}
 
 function PageHead({title,text,t}){return <div className="page-head"><div><h1>{title}</h1><p>{text}</p></div><div className="user-chip">🌾 {t ? t("agroVision") : "Agro Vision"}</div></div>}
 function Card({title,children}){return <div className="card">{title&&<h2>{title}</h2>}{children}</div>}
@@ -1246,7 +1422,7 @@ function Analysis({farmers=[],tokens=[],t}) {
       </div>
 
       <div className="print-report-heading">
-        <div className="report-brand"><img src="/assets/images/agro-vision-logo-transparent.png" alt="Agro Vision"/><div><strong>{t("agroVision")}</strong><span>{t("smartProcurement")}</span></div></div>
+        <div className="report-brand"><img src="/assets/images/procura-logo.png" alt="Procura"/><div><strong>{t("agroVision")}</strong><span>{t("smartProcurement")}</span></div></div>
         <h2>{t("adminReportTitle")}</h2>
         <p>{t("adminReportDesc")}</p>
       </div>

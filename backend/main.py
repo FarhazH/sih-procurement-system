@@ -7,6 +7,7 @@ from typing import Optional
 from datetime import datetime
 import requests
 import os
+from pathlib import Path
 import pickle
 import pandas as pd
 
@@ -26,18 +27,25 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="SIH Procurement System API")
 
+FRONTEND_ORIGINS = [
+    origin.strip() for origin in os.getenv("FRONTEND_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=FRONTEND_ORIGINS,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # ML models (loaded once at startup)
 try:
-    with open("wait_time_model.pkl", "rb") as f:
+    BASE_DIR = Path(__file__).resolve().parent
+    with open(BASE_DIR / "wait_time_model.pkl", "rb") as f:
         wait_time_model = pickle.load(f)
-    with open("crop_demand_model.pkl", "rb") as f:
+    with open(BASE_DIR / "crop_demand_model.pkl", "rb") as f:
         crop_demand_model = pickle.load(f)
 except FileNotFoundError:
     wait_time_model = None
@@ -174,11 +182,13 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=400, detail="Phone number already registered")
 
+    # Public registration is always for farmers; admin/operator accounts are provisioned separately.
+    registration_role = "farmer"
     new_user = User(
         name=data.name,
         phone=data.phone,
         password_hash=hash_password(data.password),
-        role=data.role,
+        role=registration_role,
         village=data.village,
         district=data.district,
         state=data.state,
@@ -190,14 +200,14 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     # auto-generate a human-friendly registration id, farmers only
-    if data.role == "farmer":
+    if registration_role == "farmer":
         new_user.farmer_registration_id = f"RJ-UDR-{new_user.id:04d}"
         db.commit()
 
     return {
         "message": "Registered successfully",
         "user_id": new_user.id,
-        "farmer_registration_id": new_user.farmer_registration_id if data.role == "farmer" else None
+        "farmer_registration_id": new_user.farmer_registration_id if registration_role == "farmer" else None
     }
 
 @app.post("/login")
@@ -256,11 +266,33 @@ def create_centre(data: CentreCreate, db: Session = Depends(get_db), admin=Depen
     db.commit()
     db.refresh(new_centre)
     log_action(db, admin["user_id"], "create_centre", "centre", new_centre.id)
-    return {"message": "Centre created", "centre_id": new_centre.id, "latitude": lat, "longitude": lng}
+    return {"message": "Centre created", "centre_id": new_centre.id, "id": new_centre.id,
+            "name": new_centre.name, "address": new_centre.address, "latitude": lat, "longitude": lng,
+            "is_active": new_centre.is_active, "operating_status": new_centre.operating_status,
+            "opening_time": new_centre.opening_time, "closing_time": new_centre.closing_time,
+            "capacity": 0, "today": 0}
+
+# Backward-compatible alias used by older frontend builds.
+@app.post("/centres")
+def create_centre_alias(data: CentreCreate, db: Session = Depends(get_db), admin=Depends(require_admin)):
+    return create_centre(data, db, admin)
 
 @app.get("/centres")
 def get_centres(db: Session = Depends(get_db)):
-    return db.query(Centre).all()
+    centres = db.query(Centre).all()
+    result = []
+    for c in centres:
+        slots = db.query(Slot).filter(Slot.centre_id == c.id).all()
+        capacity = sum((s.general_capacity or 0) + (s.priority_capacity or 0) for s in slots)
+        booked = sum((s.general_booked or 0) + (s.priority_booked or 0) for s in slots)
+        result.append({
+            "id": c.id, "name": c.name, "address": c.address,
+            "latitude": c.latitude, "longitude": c.longitude,
+            "is_active": c.is_active, "operating_status": c.operating_status,
+            "opening_time": c.opening_time, "closing_time": c.closing_time,
+            "capacity": capacity, "today": booked
+        })
+    return result
 
 @app.put("/centres/{centre_id}/status")
 def update_centre_status(centre_id: int, is_active: bool, operating_status: Optional[str] = None,
@@ -312,7 +344,50 @@ def create_slot(data: SlotCreate, db: Session = Depends(get_db), admin=Depends(r
     db.commit()
     db.refresh(new_slot)
     log_action(db, admin["user_id"], "create_slot", "slot", new_slot.id)
-    return {"message": "Slot created", "slot_id": new_slot.id}
+    return {"message": "Slot created", "slot_id": new_slot.id, "id": new_slot.id, "centre_id": new_slot.centre_id,
+            "date": new_slot.date, "time_window": new_slot.time_window,
+            "general_capacity": new_slot.general_capacity, "general_booked": new_slot.general_booked,
+            "priority_capacity": new_slot.priority_capacity, "priority_booked": new_slot.priority_booked,
+            "status": new_slot.status}
+
+# Backward-compatible alias used by older frontend builds.
+@app.post("/slots")
+def create_slot_alias(data: SlotCreate, db: Session = Depends(get_db), admin=Depends(require_admin)):
+    return create_slot(data, db, admin)
+
+
+class IncreaseSlotsRequest(BaseModel):
+    date: str
+    time_window: str
+    additional_general: int = 0
+    additional_priority: int = 0
+
+@app.post("/centres/{centre_id}/increase-slots")
+def increase_centre_slots(centre_id: int, data: IncreaseSlotsRequest, db: Session = Depends(get_db), admin=Depends(require_admin)):
+    centre = db.query(Centre).get(centre_id)
+    if not centre:
+        raise HTTPException(status_code=404, detail="Centre not found")
+    if data.additional_general < 0 or data.additional_priority < 0 or (data.additional_general + data.additional_priority) <= 0:
+        raise HTTPException(status_code=400, detail="At least one additional slot capacity must be greater than 0")
+    slot = db.query(Slot).filter(Slot.centre_id == centre_id, Slot.date == data.date, Slot.time_window == data.time_window).first()
+    if slot:
+        slot.general_capacity += data.additional_general
+        slot.priority_capacity += data.additional_priority
+        action = "increase_slot_capacity"
+    else:
+        slot = Slot(centre_id=centre_id, date=data.date, time_window=data.time_window,
+                    general_capacity=data.additional_general, priority_capacity=data.additional_priority, status="Available")
+        db.add(slot)
+        action = "create_additional_slot"
+    db.commit()
+    db.refresh(slot)
+    log_action(db, admin["user_id"], action, "slot", slot.id,
+               details=f"general+{data.additional_general}, priority+{data.additional_priority}")
+    return {"message": "Slots/capacity updated", "slot": {
+        "id": slot.id, "centre_id": slot.centre_id, "date": slot.date, "time_window": slot.time_window,
+        "general_capacity": slot.general_capacity, "general_booked": slot.general_booked,
+        "priority_capacity": slot.priority_capacity, "priority_booked": slot.priority_booked, "status": slot.status
+    }}
 
 
 # =========================================================
@@ -320,7 +395,9 @@ def create_slot(data: SlotCreate, db: Session = Depends(get_db), admin=Depends(r
 # =========================================================
 
 @app.post("/book")
-def book_slot(data: BookRequest, db: Session = Depends(get_db)):
+def book_slot(data: BookRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin" and current_user.id != data.user_id:
+        raise HTTPException(status_code=403, detail="You can only book a slot for your own account")
     user = db.query(User).get(data.user_id)
     slot = db.query(Slot).get(data.slot_id)
     if not user:
@@ -421,10 +498,12 @@ def update_status(booking_id: int, data: StatusUpdate, db: Session = Depends(get
     return {"message": "Status updated", "booking_id": booking.id, "new_status": booking.status}
 
 @app.delete("/cancel/{booking_id}")
-def cancel_booking(booking_id: int, db: Session = Depends(get_db)):
+def cancel_booking(booking_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     booking = db.query(Booking).get(booking_id)
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
+    if current_user.role not in ("admin", "operator") and booking.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to cancel this booking")
     if booking.status == "Cancelled":
         raise HTTPException(status_code=400, detail="Booking already cancelled")
     slot = db.query(Slot).get(booking.slot_id)
@@ -562,10 +641,12 @@ def get_notifications(user_id: int, db: Session = Depends(get_db), owner=Depends
     return db.query(Notification).filter_by(user_id=user_id).order_by(Notification.created_at.desc()).all()
 
 @app.put("/notifications/read/{notification_id}")
-def mark_notification_read(notification_id: int, db: Session = Depends(get_db)):
+def mark_notification_read(notification_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     note = db.query(Notification).get(notification_id)
     if not note:
         raise HTTPException(status_code=404, detail="Notification not found")
+    if current_user.role != "admin" and note.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this notification")
     note.is_read = True
     note.read_at = datetime.utcnow()
     db.commit()
@@ -740,7 +821,7 @@ def admin_list_bookings(db: Session = Depends(get_db), admin=Depends(require_adm
     return result
 
 @app.get("/admin/stats")
-def get_admin_stats(db: Session = Depends(get_db)):
+def get_admin_stats(db: Session = Depends(get_db), admin=Depends(require_admin)):
     total_farmers = db.query(User).filter(User.role == "farmer").count()
     total_bookings = db.query(Booking).count()
     total_waitlist = db.query(Waitlist).count()
