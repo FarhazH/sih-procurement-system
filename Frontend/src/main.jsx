@@ -719,9 +719,9 @@ function FarmerApp({farmers,centres,slots,tokens,waitingList,currentFarmerId,onB
   const [page,setPage]=useState("dashboard"); const [selectedToken,setSelectedToken]=useState(null);
   const currentFarmer=farmers.find(f=>f.id===currentFarmerId)||farmers[0];
   return <div className="layout">
-    <Sidebar title={t("farmerPortal")} items={[["dashboard",t("dashboard"),"🏠"],["gps",t("gps"),"📍"],["profile",t("profile"),"👨‍🌾"],["produce",t("produce"),"🌾"],["book",t("bookToken"),"🎫"],["queue",t("queue"),"🔎"],["payment",t("payment"),"💰"],["cancel",t("cancelBooking"),"✕"],["analysis",t("analysis"),"📈"],["reports",t("reports"),"📄"],["notifications",t("notifications"),"🔔"],["feedback",t("feedback"),"⭐"],["prices",t("cropPrices"),"📈"],["howto",t("howToUse"),"▶️"]]} page={page} setPage={setPage} onLogout={onLogout} t={t} />
+    <Sidebar title={t("farmerPortal")} items={[["dashboard",t("dashboard"),"🏠"],["gps",t("gps"),"📍"],["profile",t("profile"),"👨‍🌾"],["produce",t("produce"),"🌾"],["book",t("bookToken"),"🎫"],["queue",t("queue"),"🔎"],["payment",t("payment"),"💰"],["cancel",t("cancelBooking"),"✕"],["analysis",t("analysis"),"📈"],["reports",t("reports"),"📄"],["notifications",t("notifications"),"🔔"],["feedback",t("feedback"),"⭐"],["prices",t("cropPrices"),"📈"]]} page={page} setPage={setPage} onLogout={onLogout} t={t} />
     <main className="content">
-      {page==="gps"&&<FarmerGPS centres={centres} t={t} language={language}/>} {page==="dashboard"&&<FarmerDashboard farmer={currentFarmer} tokens={tokens} setPage={setPage} t={t}/>} {page==="profile"&&<Profile farmer={currentFarmer} t={t}/>} {page==="produce"&&<Produce farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} t={t}/>} {page==="book"&&<BookToken centres={centres} slots={slots} tokens={tokens} onBook={async data=>{const result=await onBookRequest({...data,farmer:currentFarmer.name,farmerId:currentFarmer.id});if(result?.type==="booked"||result?.type==="waiting"){setSelectedToken(result.record);setPage("queue");}else alert(t("bookingFailed"));}} t={t}/>} {page==="queue"&&<Queue tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} selected={selectedToken} onCancel={onCancelToken} t={t}/>} {page==="cancel"&&<CancelBooking tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} onCancel={onCancelToken} setPage={setPage} t={t}/>} {page==="payment"&&<Payment t={t} payments={payments}/>} {page==="analysis"&&<FarmerAnalysis farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} payments={payments} t={t}/>} {page==="reports"&&<FarmerReports farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} payments={payments} t={t}/>} {page==="notifications"&&<Notifications t={t} notifications={notifications} markNotificationRead={markNotificationRead} farmerId={currentFarmer.id}/>} {page==="feedback"&&<FarmerFeedback farmer={currentFarmer} t={t}/>} {page==="prices"&&<CropPrices t={t} farmer={currentFarmer}/>} {page==="howto"&&<HowToUse language={language} t={t}/>} 
+      {page==="gps"&&<FarmerGPS centres={centres} t={t} language={language}/>} {page==="dashboard"&&<FarmerDashboard farmer={currentFarmer} tokens={tokens} setPage={setPage} t={t}/>} {page==="profile"&&<Profile farmer={currentFarmer} t={t}/>} {page==="produce"&&<Produce farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} t={t}/>} {page==="book"&&<BookToken centres={centres} slots={slots} tokens={tokens} onBook={async data=>{const result=await onBookRequest({...data,farmer:currentFarmer.name,farmerId:currentFarmer.id});if(result?.type==="booked"||result?.type==="waiting"){setSelectedToken(result.record);setPage("queue");}else alert(t("bookingFailed"));}} t={t}/>} {page==="queue"&&<Queue tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} selected={selectedToken} onCancel={onCancelToken} t={t}/>} {page==="cancel"&&<CancelBooking tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} onCancel={onCancelToken} setPage={setPage} t={t}/>} {page==="payment"&&<Payment t={t} payments={payments}/>} {page==="analysis"&&<FarmerAnalysis farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} payments={payments} t={t}/>} {page==="reports"&&<FarmerReports farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} payments={payments} t={t}/>} {page==="notifications"&&<Notifications t={t} notifications={notifications} markNotificationRead={markNotificationRead} farmerId={currentFarmer.id}/>} {page==="feedback"&&<FarmerFeedback farmer={currentFarmer} t={t}/>} {page==="prices"&&<CropPrices t={t} farmer={currentFarmer}/>} 
     </main>
   </div>;
 }
@@ -898,6 +898,7 @@ function Login({role,setRole,language,setLanguage,onLogin,onRegister,t}){
         </form>
         <div className="register-row"><span>{t("dontHaveAccount")}</span><button type="button" onClick={onRegister}>{t("register")}</button></div>
       </div>
+      <LoginDemoVideo t={t} language={language}/>
     </div>
   </div>;
 }
@@ -1112,6 +1113,42 @@ function HowToUse({t,language}){
     </Card>
   </section>;
 }
+
+function LoginDemoVideo({t,language}){
+  const isHindi = language==="hi";
+  const [videoError,setVideoError] = useState(false);
+
+  return <section className="login-demo-video" aria-labelledby="login-demo-video-title">
+    <div className="login-demo-video-header">
+      <div>
+        <span className="eyebrow">▶ {isHindi?t("howToUseHindi"):t("howToUseEnglish")}</span>
+        <h2 id="login-demo-video-title">{isHindi?t("howToUseHindi"):t("howToUseEnglish")}</h2>
+        <p>{t("videoHindiVoice")}</p>
+      </div>
+      <span className="video-language">🇮🇳 {t("videoHindi")}</span>
+    </div>
+
+    <div className={"login-demo-video-frame"+(videoError?" video-missing":"")}>
+      <video
+        controls
+        preload="metadata"
+        playsInline
+        onError={()=>setVideoError(true)}
+        aria-label={isHindi?"किसानों के लिए प्रोक्यूरा का हिंदी प्रदर्शन वीडियो":"Hindi demonstration video for farmers"}
+      >
+        <source src="/videos/procura-demo-hindi-hindi-voice.mp4" type="video/mp4" />
+        {isHindi ? "आपका ब्राउज़र वीडियो चलाने में सक्षम नहीं है।" : "Your browser does not support HTML5 video."}
+      </video>
+      {videoError && <div className="login-demo-video-fallback">
+        ⚠️ {t("videoUnavailable")}<br />
+        <small>{t("videoAssetNote")}</small>
+      </div>}
+    </div>
+
+    <p className="login-demo-video-note">🎧 {t("videoSteps")}</p>
+  </section>;
+}
+
 
 function Sidebar({title,items,page,setPage,onLogout,t}){
   return <aside className="sidebar">

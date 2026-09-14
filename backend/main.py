@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Header
+from fastapi import FastAPI, Depends, HTTPException, Header, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func as sqlfunc, text
@@ -17,6 +17,10 @@ from models import (
 )
 from auth import hash_password, verify_password, create_access_token, decode_access_token
 from recommendation_logic import recommend_best_center
+from email_service import (
+    send_booking_email, send_waitlist_email, send_status_email,
+    send_procurement_email, send_payment_email
+)
 
 # =========================================================
 # DATABASE + APP
@@ -58,6 +62,9 @@ class RegisterRequest(BaseModel):
     address: Optional[str] = None
     preferred_language: Optional[str] = "en"
     email: Optional[str] = None
+    role: Optional[str] = "farmer"
+    crop: Optional[str] = None
+    quantity: Optional[int] = None
 
 class LoginRequest(BaseModel):
     phone: str
@@ -186,6 +193,7 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
         state=data.state,
         address=data.address,
         preferred_language=data.preferred_language,
+        email=data.email,
         crop_type=data.crop,
         crop_quantity=data.quantity
     )
@@ -325,7 +333,7 @@ def create_slot(data: SlotCreate, db: Session = Depends(get_db), admin=Depends(r
 # =========================================================
 
 @app.post("/book")
-def book_slot(data: BookRequest, db: Session = Depends(get_db)):
+def book_slot(data: BookRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     user = db.query(User).get(data.user_id)
     slot = db.query(Slot).get(data.slot_id)
     if not user:
@@ -353,6 +361,7 @@ def book_slot(data: BookRequest, db: Session = Depends(get_db)):
         queue = db.query(Booking).join(Slot).filter(Slot.centre_id == slot.centre_id, Booking.id <= new_booking.id).count()
         centre = db.query(Centre).get(slot.centre_id)
         token_str = f"{centre.name[:3].upper()}-{queue}" if centre else f"T-{new_booking.id}"
+        background_tasks.add_task(send_booking_email, email=user.email, farmer_name=user.name, farmer_id=user.id, phone=user.phone, village=user.village, district=user.district, booking_id=new_booking.id, token=token_str, slot_date=slot.date, time_window=slot.time_window, centre_name=centre.name if centre else "Procurement Centre", queue_position=queue, crop_type=new_booking.crop_type, quantity=new_booking.quantity, unit=new_booking.unit, pool_type=new_booking.pool_type)
         return {"message": "Booking confirmed", "booking_id": new_booking.id, "pool_type": "general", "queue": queue, "token": token_str}
 
     elif slot.priority_booked < slot.priority_capacity and user.missed_count >= 1:
@@ -369,6 +378,7 @@ def book_slot(data: BookRequest, db: Session = Depends(get_db)):
         queue = db.query(Booking).join(Slot).filter(Slot.centre_id == slot.centre_id, Booking.id <= new_booking.id).count()
         centre = db.query(Centre).get(slot.centre_id)
         token_str = f"{centre.name[:3].upper()}-{queue}" if centre else f"T-{new_booking.id}"
+        background_tasks.add_task(send_booking_email, email=user.email, farmer_name=user.name, farmer_id=user.id, phone=user.phone, village=user.village, district=user.district, booking_id=new_booking.id, token=token_str, slot_date=slot.date, time_window=slot.time_window, centre_name=centre.name if centre else "Procurement Centre", queue_position=queue, crop_type=new_booking.crop_type, quantity=new_booking.quantity, unit=new_booking.unit, pool_type=new_booking.pool_type)
         return {"message": "Booking confirmed", "booking_id": new_booking.id, "pool_type": "priority", "queue": queue, "token": token_str}
 
     else:
@@ -380,6 +390,7 @@ def book_slot(data: BookRequest, db: Session = Depends(get_db)):
         db.add(Notification(user_id=user.id, notification_type="Waitlist",
                              message=f"Slot is full. You are on the waitlist at position {position}."))
         db.commit()
+        background_tasks.add_task(send_waitlist_email, email=user.email, farmer_name=user.name, farmer_id=user.id, phone=user.phone, village=user.village, district=user.district, slot_id=slot.id, slot_date=slot.date, time_window=slot.time_window, centre_name=(db.query(Centre).get(slot.centre_id).name if db.query(Centre).get(slot.centre_id) else "Procurement Centre"), waitlist_position=position)
         return {"message": "Slot full, added to waitlist", "waitlist_position": position}
 
 @app.get("/bookings/{user_id}")
@@ -423,19 +434,25 @@ def get_user_waitlist(user_id: int, db: Session = Depends(get_db), owner=Depends
     return result
 
 @app.put("/update-status/{booking_id}")
-def update_status(booking_id: int, data: StatusUpdate, db: Session = Depends(get_db), staff=Depends(require_operator_or_admin)):
+def update_status(booking_id: int, data: StatusUpdate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), staff=Depends(require_operator_or_admin)):
     booking = db.query(Booking).get(booking_id)
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
     booking.status = data.status
+    user = db.query(User).get(booking.user_id)
+    slot = db.query(Slot).get(booking.slot_id)
+    centre = db.query(Centre).get(slot.centre_id) if slot else None
+    queue = db.query(Booking).join(Slot).filter(Slot.centre_id == slot.centre_id, Booking.id <= booking.id, Booking.status != "Cancelled").count() if slot else 1
+    token_str = f"{centre.name[:3].upper()}-{queue}" if centre else f"T-{booking.id}"
     db.add(Notification(user_id=booking.user_id, booking_id=booking.id, notification_type="Status",
                          message=f"Your booking #{booking.id} status is now {data.status}."))
     log_action(db, staff["user_id"], "update_status", "booking", booking_id, details=data.status)
     db.commit()
+    background_tasks.add_task(send_status_email, email=user.email if user else None, farmer_name=user.name if user else "Farmer", booking_id=booking.id, token=token_str, centre_name=centre.name if centre else "Procurement Centre", slot_date=slot.date if slot else None, time_window=slot.time_window if slot else None, queue_position=queue, status=data.status, crop_type=booking.crop_type, quantity=booking.quantity, unit=booking.unit)
     return {"message": "Status updated", "booking_id": booking.id, "new_status": booking.status}
 
 @app.delete("/cancel/{booking_id}")
-def cancel_booking(booking_id: int, db: Session = Depends(get_db)):
+def cancel_booking(booking_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     booking = db.query(Booking).get(booking_id)
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
@@ -473,7 +490,12 @@ def cancel_booking(booking_id: int, db: Session = Depends(get_db)):
         db.delete(next_in_line)
         db.add(Notification(user_id=promoted_user, notification_type="Waitlist",
                              message="Good news! A slot opened up and your waitlist booking is now confirmed."))
+        promoted_farmer = db.query(User).get(promoted_user)
+        queue = db.query(Booking).join(Slot).filter(Slot.centre_id == slot.centre_id, Booking.status != "Cancelled", Booking.id <= new_booking.id).count()
+        centre = db.query(Centre).get(slot.centre_id)
+        token_str = f"{centre.name[:3].upper()}-{queue}" if centre else f"T-{new_booking.id}"
         db.commit()
+        background_tasks.add_task(send_booking_email, email=promoted_farmer.email if promoted_farmer else None, farmer_name=promoted_farmer.name if promoted_farmer else "Farmer", farmer_id=promoted_farmer.id if promoted_farmer else None, phone=promoted_farmer.phone if promoted_farmer else None, village=promoted_farmer.village if promoted_farmer else None, district=promoted_farmer.district if promoted_farmer else None, booking_id=new_booking.id, token=token_str, slot_date=slot.date, time_window=slot.time_window, centre_name=centre.name if centre else "Procurement Centre", queue_position=queue, crop_type=new_booking.crop_type, quantity=new_booking.quantity, unit=new_booking.unit, pool_type=new_booking.pool_type)
         return {"message": "Booking cancelled. Next waitlisted farmer auto-confirmed.", "promoted_user_id": promoted_user}
 
     return {"message": "Booking cancelled. No one on waitlist."}
@@ -488,7 +510,7 @@ def get_payments(user_id: int, db: Session = Depends(get_db), owner=Depends(veri
     return db.query(Payment).filter_by(user_id=user_id).order_by(Payment.created_at.desc()).all()
 
 @app.put("/update-payment/{booking_id}")
-def update_payment(booking_id: int, data: PaymentUpdate, db: Session = Depends(get_db), admin=Depends(require_admin)):
+def update_payment(booking_id: int, data: PaymentUpdate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), admin=Depends(require_admin)):
     booking = db.query(Booking).get(booking_id)
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
@@ -514,10 +536,16 @@ def update_payment(booking_id: int, data: PaymentUpdate, db: Session = Depends(g
         )
         db.add(payment)
 
+    user = db.query(User).get(booking.user_id)
+    slot = db.query(Slot).get(booking.slot_id)
+    centre = db.query(Centre).get(slot.centre_id) if slot else None
+    queue = db.query(Booking).join(Slot).filter(Slot.centre_id == slot.centre_id, Booking.id <= booking.id, Booking.status != "Cancelled").count() if slot else 1
+    token_str = f"{centre.name[:3].upper()}-{queue}" if centre else f"T-{booking.id}"
     db.add(Notification(user_id=booking.user_id, booking_id=booking.id, notification_type="Payment",
                          message=f"Payment status for booking #{booking.id}: {data.payment_status}"))
     log_action(db, admin["user_id"], "update_payment", "booking", booking_id, details=data.payment_status)
     db.commit()
+    background_tasks.add_task(send_payment_email, email=user.email if user else None, farmer_name=user.name if user else "Farmer", booking_id=booking.id, token=token_str, centre_name=centre.name if centre else "Procurement Centre", slot_date=slot.date if slot else None, time_window=slot.time_window if slot else None, queue_position=queue, payment_status=data.payment_status, amount=float(payment.amount) if payment.amount is not None else None, payment_method=payment.payment_method, transaction_id=payment.transaction_id)
     return {"message": "Payment updated", "booking_id": booking.id, "payment_status": data.payment_status}
 
 
@@ -544,7 +572,7 @@ class ProcurementCreate(BaseModel):
     grade: Optional[str] = "A"
 
 @app.post("/procurement/{booking_id}")
-def create_procurement(booking_id: int, data: ProcurementCreate, db: Session = Depends(get_db), admin=Depends(require_admin)):
+def create_procurement(booking_id: int, data: ProcurementCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), admin=Depends(require_admin)):
     booking = db.query(Booking).get(booking_id)
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
@@ -565,7 +593,12 @@ def create_procurement(booking_id: int, data: ProcurementCreate, db: Session = D
     db.add(Notification(user_id=booking.user_id, booking_id=booking.id, notification_type="Procurement",
                          message=f"Procurement completed for booking #{booking.id} (Grade {data.grade})."))
     log_action(db, admin["user_id"], "create_procurement", "booking", booking_id)
+    user = db.query(User).get(booking.user_id)
+    centre = db.query(Centre).get(slot.centre_id)
+    queue = db.query(Booking).join(Slot).filter(Slot.centre_id == slot.centre_id, Booking.id <= booking.id, Booking.status != "Cancelled").count()
+    token_str = f"{centre.name[:3].upper()}-{queue}" if centre else f"T-{booking.id}"
     db.commit()
+    background_tasks.add_task(send_procurement_email, email=user.email if user else None, farmer_name=user.name if user else "Farmer", booking_id=booking.id, token=token_str, centre_name=centre.name if centre else "Procurement Centre", slot_date=slot.date, time_window=slot.time_window, queue_position=queue, crop_type=procurement.crop_type, quantity=procurement.quantity, unit=booking.unit, grade=procurement.grade, final_status=procurement.final_status)
     return {"message": "Procurement completed", "booking_id": booking.id, "grade": data.grade}
 
 

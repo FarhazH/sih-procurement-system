@@ -169,3 +169,216 @@
 @keyframes firefly{0%,100%{transform:translate3d(0,0,0);opacity:.12}25%{transform:translate3d(18px,-16px,0);opacity:.9}55%{transform:translate3d(-8px,-34px,0);opacity:.35}80%{transform:translate3d(12px,-8px,0);opacity:.75}}
 @keyframes wheatSway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(4deg)}}
 @media (prefers-reduced-motion:reduce){.login-sun,.login-sun:after,.login-fireflies i,.login-wheat b{animation:none!important}}
+
+/* Login demonstration video: placed BELOW the login card and aligned to the LEFT.
+   The existing login background/image is intentionally untouched. */
+.login-layout-centered{
+  max-width:1040px;
+  grid-template-columns:1fr;
+  gap:22px;
+  align-items:start;
+  padding-bottom:40px;
+}
+.login-layout-centered .login-card{
+  width:min(560px,100%);
+  justify-self:center;
+}
+.login-demo-video{
+  width:min(760px,100%);
+  justify-self:start;
+  background:rgba(18,39,27,.94);
+  border:1px solid rgba(255,255,255,.28);
+  border-radius:22px;
+  padding:18px;
+  box-shadow:0 24px 70px rgba(0,0,0,.32),0 2px 0 rgba(255,255,255,.12) inset;
+  backdrop-filter:blur(14px);
+  animation:cardIn .7s ease-out .08s both;
+}
+.login-demo-video-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.login-demo-video-header h2{
+  margin:4px 0 5px;
+  font-size:20px;
+  letter-spacing:-.025em;
+  color:#fff;
+  text-shadow:0 2px 8px rgba(0,0,0,.45);
+}
+.login-demo-video-header p{
+  margin:0;
+  color:#f1f7f2;
+  font-size:11px;
+  line-height:1.5;
+  text-shadow:0 1px 5px rgba(0,0,0,.4);
+}
+.login-demo-video-header .eyebrow{
+  margin-bottom:4px;
+  color:#fff;
+  font-weight:800;
+  text-shadow:0 2px 7px rgba(0,0,0,.45);
+}
+.login-demo-video .video-language{
+  flex:0 0 auto;
+  color:#103b26;
+  background:#fff;
+  border:1px solid rgba(255,255,255,.9);
+  border-radius:999px;
+  padding:7px 10px;
+  font-size:10px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.login-demo-video-frame{
+  position:relative;
+  overflow:hidden;
+  border-radius:14px;
+  background:#08130d;
+  aspect-ratio:16/9;
+}
+.login-demo-video-frame video{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  background:#08130d;
+}
+.login-demo-video-fallback{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  text-align:center;
+  padding:20px;
+  color:#fff;
+  background:#10251a;
+  font-size:13px;
+  line-height:1.6;
+}
+.login-demo-video-fallback small{
+  font-size:10px;
+  opacity:.92;
+}
+.login-demo-video-note{
+  margin:10px 0 0;
+  padding:9px 11px;
+  border-radius:10px;
+  background:rgba(255,255,255,.12);
+  color:#fff;
+  font-size:10px;
+  line-height:1.5;
+  border:1px solid rgba(255,255,255,.16);
+  text-shadow:0 1px 4px rgba(0,0,0,.35);
+}
+@media(max-width:900px){
+  .login-layout-centered{
+    grid-template-columns:1fr;
+    max-width:720px;
+    align-items:start;
+  }
+  .login-layout-centered .login-card{
+    justify-self:stretch;
+  }
+  .login-demo-video{
+    width:100%;
+    justify-self:stretch;
+  }
+}
+@media(max-width:580px){
+  .login-demo-video{
+    padding:13px;
+    border-radius:18px;
+  }
+  .login-demo-video-header{
+    flex-direction:column;
+  }
+  .login-demo-video-header h2{
+    font-size:18px;
+  }
+}
+
+/* =========================================================
+   FINAL FIX: Login demo video visibility / page placement
+   Existing background, login card and other features untouched.
+   ========================================================= */
+
+.login-page{
+  overflow-x:hidden !important;
+  overflow-y:auto !important;
+}
+
+.login-layout.login-layout-centered{
+  width:100% !important;
+  max-width:1040px !important;
+  min-height:auto !important;
+  margin:0 auto !important;
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:flex-start !important;
+  gap:22px !important;
+  padding-top:20px !important;
+  padding-bottom:40px !important;
+}
+
+.login-layout.login-layout-centered .login-card{
+  width:min(560px,100%) !important;
+  flex:0 0 auto !important;
+  margin:0 auto !important;
+}
+
+.login-layout.login-layout-centered .login-demo-video{
+  display:block !important;
+  width:min(760px,100%) !important;
+  max-width:760px !important;
+  height:auto !important;
+  min-height:0 !important;
+  flex:0 0 auto !important;
+  margin:0 auto !important;
+  position:relative !important;
+  visibility:visible !important;
+  opacity:1 !important;
+}
+
+.login-demo-video-frame{
+  display:block !important;
+  width:100% !important;
+  height:auto !important;
+  aspect-ratio:16 / 9 !important;
+  min-height:0 !important;
+  position:relative !important;
+  overflow:hidden !important;
+}
+
+.login-demo-video-frame video{
+  display:block !important;
+  width:100% !important;
+  height:100% !important;
+  min-height:0 !important;
+  max-height:none !important;
+  object-fit:contain !important;
+}
+
+@media (max-width:900px){
+  .login-layout.login-layout-centered{
+    width:100% !important;
+    padding-top:10px !important;
+    gap:18px !important;
+  }
+
+  .login-layout.login-layout-centered .login-card,
+  .login-layout.login-layout-centered .login-demo-video{
+    width:100% !important;
+    max-width:100% !important;
+  }
+}
+
+@media (max-width:580px){
+  .login-layout.login-layout-centered{
+    padding-top:5px !important;
+    padding-bottom:25px !important;
+  }
+}
