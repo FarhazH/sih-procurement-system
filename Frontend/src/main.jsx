@@ -332,8 +332,8 @@ const extraTranslations = {
     bookingCategoryNote: "Choose Priority only when the normal booking could not meet a valid requirement.",
     capacityStatus: "Capacity Status",
     totalCapacity: "Total Capacity",
-    occupiedSlots: "Occupied Slots",
-    availableSlots: "Available Slots",
+    occupiedSlots: "Occupied Seats",
+    availableSlots: "Available Seats",
     normalAllocation: "Normal Allocation",
     priorityAllocation: "Priority Allocation",
     usedNormal: "Used Normal",
@@ -341,12 +341,12 @@ const extraTranslations = {
     queueCount: "Queue Count",
     fullStatus: "Full",
     availableStatus: "Available",
-    increaseSlots: "Increase Slots",
-    additionalSlots: "Additional Slots",
-    addSlotsPlaceholder: "Enter slots to add",
-    addSlotsHint: "Add extra slots when this centre is full or demand is high.",
-    slotsAdded: "slots added successfully.",
-    invalidSlotIncrease: "Enter a valid number of slots greater than 0.",
+    increaseSlots: "Increase Capacity",
+    additionalSlots: "Additional Seats",
+    addSlotsPlaceholder: "Enter seats to add",
+    addSlotsHint: "Add extra seats when this centre is full or demand is high.",
+    slotsAdded: "seats added successfully.",
+    invalidSlotIncrease: "Enter a valid number of seats greater than 0.",
     centreCapacityTitle: "Procurement Centre Capacity & Status",
     centreCapacityDesc: "Monitor capacity, occupancy, booking allocation and waiting-list demand.",
     normalPriorityAllocation: "Normal / Priority Allocation",
@@ -589,15 +589,15 @@ function App(){
         apiRequest(`/notifications/${user.user_id}`), apiRequest(`/payments/${user.user_id}`),
         apiRequest(`/procurements/${user.user_id}`)
       ]);
-      setTokens((bookingData || []).map(b => ({...b, token:`B-${b.booking_id}`, farmerId:user.user_id, farmer:user.name, centre:b.centre_name, time:b.time_window, date:b.date, crop:b.crop_type, quantity:b.quantity, bookingType:b.pool_type?.toLowerCase()==="priority"?"priority":"normal"})));
+      setTokens((bookingData || []).map(b => ({...b, token:b.token || `B-${b.booking_id}`, farmerId:user.user_id, farmer:user.name, centre:b.centre_name, time:b.time_window, date:b.date, crop:b.crop_type, quantity:b.quantity, queue:b.queue, bookingType:b.pool_type?.toLowerCase()==="priority"?"priority":"normal"})));
       setWaitingList((waitData || []).map(w => ({...w, id:w.waitlist_id, farmerId:user.user_id, slotId:w.slot_id, queuePosition:w.position, status:"Waiting", date:w.date, time:w.time_window})));
       setNotifications((notificationData || []).map(n => ({...n, read:n.is_read, createdAt:n.created_at, type:n.notification_type, farmerId:user.user_id, data:{bookingId:n.booking_id}})));
       setPayments(paymentData || []);
       setProcurements(procurementData || []);
     } else {
       const [adminBookings, adminFarmers] = await Promise.all([apiRequest("/admin/bookings"), apiRequest("/admin/farmers")]);
-      setTokens(Array.isArray(adminBookings) ? adminBookings : []);
-      if (Array.isArray(adminFarmers)) setFarmers(adminFarmers.map(f=>({...f,id:f.user_id ?? f.id,mobile:f.phone ?? f.mobile,status:f.status || "Active"})));
+      setTokens(Array.isArray(adminBookings) ? (()=>{ let cq={}; return adminBookings.map(b=>{ let c=b.centre_name||"Unknown"; cq[c]=(cq[c]||0)+1; let tokenStr = c === "Unknown" ? `T-${b.booking_id}` : `${c.substring(0,3).toUpperCase()}-${cq[c]}`; return {...b, token:tokenStr, farmer:b.farmer_name, centre:c, time:b.time_window, date:b.date, crop:b.crop_type, quantity:b.quantity, amount:b.amount, queue:cq[c]}; }); })() : []);
+      if (Array.isArray(adminFarmers)) setFarmers(adminFarmers.map(f=>({...f,id:f.user_id ?? f.id,mobile:f.phone ?? f.mobile,crop:f.crop_type||f.crop||"",quantity:f.crop_quantity||f.quantity||"",status:f.status || "Active"})));
     }
   };
   const addNotification=(notification)=>setNotifications(prev=>[{id:`N-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,read:false,createdAt:new Date().toISOString(),...notification},...prev]);
@@ -649,7 +649,7 @@ function App(){
         const record={...booking,id:`W-${Date.now()}`,status:"Waiting",queuePosition:data.waitlist_position};
         setWaitingList(prev=>[...prev,record]); return {type:"waiting",record};
       }
-      const record={...booking,bookingId:data.booking_id,token:`B-${data.booking_id}`,status:"Confirmed",bookingType:data.pool_type?.toLowerCase()==="priority"?"priority":"normal"};
+      const record={...booking,bookingId:data.booking_id,token:data.token || `B-${data.booking_id}`,queue:data.queue,status:"Confirmed",bookingType:data.pool_type?.toLowerCase()==="priority"?"priority":"normal"};
       setTokens(prev=>[...prev,record]); return {type:"booked",record};
     } catch(error) { alert(error.message || t("bookingFailed")); return {type:"duplicate"}; }
   };
@@ -663,7 +663,7 @@ function App(){
       if (loginRole && me.role !== loginRole) throw new Error(language==="hi"?"इस खाते की भूमिका चयन से मेल नहीं खाती।":"This account does not match the selected role.");
       setRole(me.role);
       setCurrentFarmerId(me.user_id);
-      setFarmers(prev => [{id:me.user_id,name:me.name,mobile:me.phone,village:me.village,district:me.district,state:me.state,status:"Active"}, ...prev.filter(f=>f.id!==me.user_id)]);
+      setFarmers(prev => [{id:me.user_id,name:me.name,mobile:me.phone,village:me.village,district:me.district,state:me.state,crop:me.crop_type||me.crop||"",quantity:me.crop_quantity||me.quantity||"",status:"Active"}, ...prev.filter(f=>f.id!==me.user_id)]);
       setLoggedIn(true);
       await loadAuthenticatedData(me);
     } catch (error) {
@@ -674,7 +674,7 @@ function App(){
   useEffect(()=>{
     if(!authToken) return;
     (async()=>{
-      try { const me=await apiRequest("/auth/me"); setRole(me.role); setCurrentFarmerId(me.user_id); setFarmers(prev=>[{id:me.user_id,name:me.name,mobile:me.phone,village:me.village,district:me.district,state:me.state,status:"Active"},...prev.filter(f=>f.id!==me.user_id)]); await loadAuthenticatedData(me); setLoggedIn(true); }
+      try { const me=await apiRequest("/auth/me"); setRole(me.role); setCurrentFarmerId(me.user_id); setFarmers(prev=>[{id:me.user_id,name:me.name,mobile:me.phone,village:me.village,district:me.district,state:me.state,crop:me.crop_type||me.crop||"",quantity:me.crop_quantity||me.quantity||"",status:"Active"},...prev.filter(f=>f.id!==me.user_id)]); await loadAuthenticatedData(me); setLoggedIn(true); }
       catch { localStorage.removeItem("agroVisionAccessToken"); setAuthToken(""); }
     })();
   },[authToken]);
@@ -686,6 +686,23 @@ function App(){
     return <Login role={role} setRole={setRole} language={language} setLanguage={setLanguage} onLogin={handleLogin} onRegister={()=>setShowRegister(true)} t={t}/>;
   }
 
+  const updateBooking = async (booking_id, action, payload) => {
+    try {
+      if (action === "status") {
+        await apiRequest(`/update-status/${booking_id}`, { method: "PUT", body: JSON.stringify(payload) });
+        setTokens(prev => prev.map(t => String(t.booking_id) === String(booking_id) ? {...t, status: payload.status} : t));
+      } else if (action === "procurement") {
+        await apiRequest(`/procurement/${booking_id}`, { method: "POST", body: JSON.stringify(payload) });
+        setTokens(prev => prev.map(t => String(t.booking_id) === String(booking_id) ? {...t, status: "Processed"} : t));
+      } else if (action === "payment") {
+        await apiRequest(`/update-payment/${booking_id}`, { method: "PUT", body: JSON.stringify(payload) });
+        setTokens(prev => prev.map(t => String(t.booking_id) === String(booking_id) ? {...t, payment_status: payload.payment_status, amount: payload.amount || t.amount} : t));
+      }
+    } catch(err) {
+      alert("Failed to update: " + err.message);
+    }
+  };
+
   return <div className="app">
     <header className="topbar">
       <div className="topbar-brand"><img src="/assets/images/procura-logo.png" alt="Procura"/><div><div className="brand">{t("agroVision")}</div><div className="brand-subtitle">{t("smartProcurement")}</div></div></div>
@@ -694,17 +711,17 @@ function App(){
         <div className="role-switch"><span className="role-badge">{role==="farmer"?"👨‍🌾":"👨‍💼"} {role==="farmer"?(language==="hi"?"किसान पोर्टल":"Farmer Portal"):(language==="hi"?"एडमिन पोर्टल":"Admin Portal")}</span><button onClick={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);setRole("farmer");}}>↪ {t("logout")}</button></div>
       </div>
     </header>
-    {role==="farmer"?<FarmerApp farmers={farmers} centres={centres} slots={slots} tokens={tokens} waitingList={waitingList} currentFarmerId={currentFarmerId} onBookRequest={addBookingRequest} onCancelToken={cancelToken} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} language={language} notifications={notifications} markNotificationRead={markNotificationRead} onCallAdmin={()=>{}}/>:role==="operator"?<OperatorApp tokens={tokens} farmers={farmers} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t}/>:<AdminApp farmers={farmers} centres={centres} tokens={tokens} slots={slots} setSlots={setSlots} waitingList={waitingList} setCentres={setCentres} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} notifications={notifications} addSalePaymentNotification={addSalePaymentNotification}/>} 
+    {role==="farmer"?<FarmerApp farmers={farmers} centres={centres} slots={slots} tokens={tokens} waitingList={waitingList} currentFarmerId={currentFarmerId} onBookRequest={addBookingRequest} onCancelToken={cancelToken} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} language={language} notifications={notifications} markNotificationRead={markNotificationRead} onCallAdmin={()=>{}} payments={payments}/>:role==="operator"?<OperatorApp tokens={tokens} farmers={farmers} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} onUpdateBooking={updateBooking}/>:<AdminApp farmers={farmers} centres={centres} tokens={tokens} slots={slots} setSlots={setSlots} waitingList={waitingList} setCentres={setCentres} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} notifications={notifications} addSalePaymentNotification={addSalePaymentNotification} onUpdateBooking={updateBooking}/>} 
   </div>;
 }
 
-function FarmerApp({farmers,centres,slots,tokens,waitingList,currentFarmerId,onBookRequest,onCancelToken,onLogout,t,language,notifications,markNotificationRead}){
+function FarmerApp({farmers,centres,slots,tokens,waitingList,currentFarmerId,onBookRequest,onCancelToken,onLogout,t,language,notifications,markNotificationRead,payments=[]}){
   const [page,setPage]=useState("dashboard"); const [selectedToken,setSelectedToken]=useState(null);
   const currentFarmer=farmers.find(f=>f.id===currentFarmerId)||farmers[0];
   return <div className="layout">
     <Sidebar title={t("farmerPortal")} items={[["dashboard",t("dashboard"),"🏠"],["gps",t("gps"),"📍"],["profile",t("profile"),"👨‍🌾"],["produce",t("produce"),"🌾"],["book",t("bookToken"),"🎫"],["queue",t("queue"),"🔎"],["payment",t("payment"),"💰"],["cancel",t("cancelBooking"),"✕"],["analysis",t("analysis"),"📈"],["reports",t("reports"),"📄"],["notifications",t("notifications"),"🔔"],["feedback",t("feedback"),"⭐"],["prices",t("cropPrices"),"📈"],["howto",t("howToUse"),"▶️"]]} page={page} setPage={setPage} onLogout={onLogout} t={t} />
     <main className="content">
-      {page==="gps"&&<FarmerGPS centres={centres} t={t} language={language}/>} {page==="dashboard"&&<FarmerDashboard farmer={currentFarmer} tokens={tokens} setPage={setPage} t={t}/>} {page==="profile"&&<Profile farmer={currentFarmer} t={t}/>} {page==="produce"&&<Produce farmer={currentFarmer} t={t}/>} {page==="book"&&<BookToken centres={centres} slots={slots} tokens={tokens} onBook={async data=>{const result=await onBookRequest({...data,farmer:currentFarmer.name,farmerId:currentFarmer.id});if(result?.type==="booked"||result?.type==="waiting"){setSelectedToken(result.record);setPage("queue");}else alert(t("bookingFailed"));}} t={t}/>} {page==="queue"&&<Queue tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} selected={selectedToken} onCancel={onCancelToken} t={t}/>} {page==="cancel"&&<CancelBooking tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} onCancel={onCancelToken} setPage={setPage} t={t}/>} {page==="payment"&&<Payment t={t}/>} {page==="analysis"&&<FarmerAnalysis farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} t={t}/>} {page==="reports"&&<FarmerReports farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} t={t}/>} {page==="notifications"&&<Notifications t={t} notifications={notifications} markNotificationRead={markNotificationRead} farmerId={currentFarmer.id}/>} {page==="feedback"&&<FarmerFeedback farmer={currentFarmer} t={t}/>} {page==="prices"&&<CropPrices t={t} farmer={currentFarmer}/>} {page==="howto"&&<HowToUse language={language} t={t}/>} 
+      {page==="gps"&&<FarmerGPS centres={centres} t={t} language={language}/>} {page==="dashboard"&&<FarmerDashboard farmer={currentFarmer} tokens={tokens} setPage={setPage} t={t}/>} {page==="profile"&&<Profile farmer={currentFarmer} t={t}/>} {page==="produce"&&<Produce farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} t={t}/>} {page==="book"&&<BookToken centres={centres} slots={slots} tokens={tokens} onBook={async data=>{const result=await onBookRequest({...data,farmer:currentFarmer.name,farmerId:currentFarmer.id});if(result?.type==="booked"||result?.type==="waiting"){setSelectedToken(result.record);setPage("queue");}else alert(t("bookingFailed"));}} t={t}/>} {page==="queue"&&<Queue tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} selected={selectedToken} onCancel={onCancelToken} t={t}/>} {page==="cancel"&&<CancelBooking tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} onCancel={onCancelToken} setPage={setPage} t={t}/>} {page==="payment"&&<Payment t={t} payments={payments}/>} {page==="analysis"&&<FarmerAnalysis farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} payments={payments} t={t}/>} {page==="reports"&&<FarmerReports farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} payments={payments} t={t}/>} {page==="notifications"&&<Notifications t={t} notifications={notifications} markNotificationRead={markNotificationRead} farmerId={currentFarmer.id}/>} {page==="feedback"&&<FarmerFeedback farmer={currentFarmer} t={t}/>} {page==="prices"&&<CropPrices t={t} farmer={currentFarmer}/>} {page==="howto"&&<HowToUse language={language} t={t}/>} 
     </main>
   </div>;
 }
@@ -886,7 +903,7 @@ function Login({role,setRole,language,setLanguage,onLogin,onRegister,t}){
 }
 
 function Register({language,setLanguage,onBack,onRegistered,t}){
-  const [form,setForm]=useState({name:"",mobile:"",password:"",village:"",district:"",crop:bookingCrops[0],quantity:""});
+  const [form,setForm]=useState({name:"",email:"",mobile:"",password:"",village:"",district:""});
   const [error,setError]=useState("");
   const [submitting,setSubmitting]=useState(false);
 
@@ -895,13 +912,13 @@ function Register({language,setLanguage,onBack,onRegistered,t}){
   const submitRegistration=async(e)=>{
     e.preventDefault();
     setError("");
-    if(!form.name||!form.mobile||!form.password||!form.village||!form.district||!form.quantity){
+    if(!form.name||!form.mobile||!form.password||!form.village||!form.district){
       setError(t("selectRequired"));
       return;
     }
     setSubmitting(true);
     try{
-      const payload={name:form.name,phone:form.mobile,password:form.password,village:form.village,district:form.district,crop:form.crop,quantity:Number(form.quantity)};
+      const payload={name:form.name,email:form.email,phone:form.mobile,password:form.password,village:form.village,district:form.district};
       await apiRequest("/register",{method:"POST",body:JSON.stringify(payload)});
       await onRegistered(form.mobile,form.password);
     }catch(err){
@@ -924,12 +941,11 @@ function Register({language,setLanguage,onBack,onRegistered,t}){
         <p className="muted">{t("registrationSubtitle")}</p>
         <form onSubmit={submitRegistration}>
           <div className="form-group"><label>{t("name")}</label><input value={form.name} onChange={update("name")} placeholder={t("name")}/></div>
+          <div className="form-group"><label>Email <small className="muted" style={{marginLeft:"8px"}}>(Enter to receive mail updates)</small></label><input type="email" value={form.email} onChange={update("email")} placeholder="Email Address"/></div>
           <div className="form-group"><label>{t("mobileNumber")}</label><input type="tel" maxLength="10" value={form.mobile} onChange={update("mobile")} placeholder={t("enterMobileYour")}/></div>
           <div className="form-group"><label>{t("password")}</label><input type="password" value={form.password} onChange={update("password")} placeholder={t("enterPasswordYour")}/></div>
           <div className="form-group"><label>{t("village")}</label><input value={form.village} onChange={update("village")} placeholder={t("village")}/></div>
           <div className="form-group"><label>{t("district")}</label><input value={form.district} onChange={update("district")} placeholder={t("district")}/></div>
-          <div className="form-group"><label>{t("crop")}</label><select value={form.crop} onChange={update("crop")}>{bookingCrops.map(c=><option key={c} value={c}>{t(c.toLowerCase())}</option>)}</select></div>
-          <div className="form-group"><label>{t("quantity")}</label><input type="number" min="1" value={form.quantity} onChange={update("quantity")} placeholder={t("quantity")}/></div>
           {error&&<div className="gps-error">⚠️ {error}</div>}
           <button type="submit" className="primary full" disabled={submitting}>{submitting?t("submitting"):t("createAccount")}</button>
         </form>
@@ -1105,11 +1121,11 @@ function Sidebar({title,items,page,setPage,onLogout,t}){
       <span>{icon}</span>{label}</button>)}
       <button className="nav logout" onClick={onLogout}>↪ {t("logout")}</button></aside>}
 
-function FarmerDashboard({farmer,tokens,setPage,t}){const token=tokens.find(x=>x.farmerId===farmer.id&&x.status!=="Cancelled");return <section><PageHead title={`${t("welcomeComma")} ${farmer.name} 👋`} text={t("manageActivities")} /><div className="stats"><Stat icon="🎫" label={t("activeToken")} value={token?.token||"—"}/><Stat icon="📍" label={t("procurementCentre")} value={token?.centre?.split(" Procurement")[0]||t("notSelected")}/><Stat icon="🔢" label={t("queuePosition")} value={token?.queue||"—"}/><Stat icon="💰" label={t("payment")} value={t("pending")}/></div><div className="grid2"><Card title={t("currentStatus")}><div className="timeline">{[["tokenBooked","Token Booked"],["produceReached","Produce Reached Centre"],["qualityVerification","Quality Verification"],["procurementCompleted","Procurement Completed"],["paymentProcessed","Payment Processed"]].map(([key,fallback],i)=><div className={"step "+(i<2?"done":"")} key={key}><span>{i<2?"✓":i+1}</span><div><b>{t(key)}</b><small>{i<2?t("completed"):t("pending")}</small></div></div>)}</div></Card><Card title={t("quickActions")}><button className="action" onClick={()=>setPage("book")}>🎫 {t("bookNewToken")} <span>→</span></button><button className="action" onClick={()=>setPage("queue")}>🔎 {t("viewQueue")} <span>→</span></button><button className="action" onClick={()=>setPage("notifications")}>🔔 {t("notifications")} <span>→</span></button><button className="action" onClick={()=>setPage("gps")}>📍 {t("gps")} <span>→</span></button><CallAdminButton t={t} phoneNumber={ADMIN_PHONE_NUMBER}/><button className="action" onClick={()=>setPage("analysis")}>📈 {t("analysis")} <span>→</span></button><button className="action" onClick={()=>setPage("reports")}>📄 {t("reports")} <span>→</span></button><button className="action" onClick={()=>setPage("cancel")}>✕ {t("cancelBooking")} <span>→</span></button></Card></div></section>}
+function FarmerDashboard({farmer,tokens,setPage,t}){const token=tokens.find(x=>x.farmerId===farmer.id&&x.status!=="Cancelled");const statusStepMap={Confirmed:1,Received:2,Verified:3,Accepted:3,Processed:4};const doneSteps=token?(statusStepMap[token.status]||0):0;const paymentDone=token?.payment_status==="Completed";return <section><PageHead title={`${t("welcomeComma")} ${farmer.name} 👋`} text={t("manageActivities")} /><div className="stats"><Stat icon="🎫" label={t("activeToken")} value={token?.token||"—"}/><Stat icon="📍" label={t("procurementCentre")} value={token?.centre?.split(" Procurement")[0]||t("notSelected")}/><Stat icon="🔢" label={t("queuePosition")} value={token?.queue||"—"}/><Stat icon="💰" label={t("payment")} value={paymentDone?t("processed"):t("pending")}/></div><div className="grid2"><Card title={t("currentStatus")}><div className="timeline">{[["tokenBooked","Token Booked"],["produceReached","Produce Reached Centre"],["qualityVerification","Quality Verification"],["procurementCompleted","Procurement Completed"],["paymentProcessed","Payment Processed"]].map(([key,fallback],i)=>{const isDone=(i<4&&i<doneSteps)||(i===4&&paymentDone);return <div className={"step "+(isDone?"done":"")} key={key}><span>{isDone?"✓":i+1}</span><div><b>{t(key)}</b><small>{isDone?t("completed"):t("pending")}</small></div></div>})}</div></Card><Card title={t("quickActions")}><button className="action" onClick={()=>setPage("book")}>🎫 {t("bookNewToken")} <span>→</span></button><button className="action" onClick={()=>setPage("queue")}>🔎 {t("viewQueue")} <span>→</span></button><button className="action" onClick={()=>setPage("notifications")}>🔔 {t("notifications")} <span>→</span></button><button className="action" onClick={()=>setPage("gps")}>📍 {t("gps")} <span>→</span></button><CallAdminButton t={t} phoneNumber={ADMIN_PHONE_NUMBER}/><button className="action" onClick={()=>setPage("analysis")}>📈 {t("analysis")} <span>→</span></button><button className="action" onClick={()=>setPage("reports")}>📄 {t("reports")} <span>→</span></button><button className="action" onClick={()=>setPage("cancel")}>✕ {t("cancelBooking")} <span>→</span></button></Card></div></section>}
 
-function Profile({farmer,t}){return <section><PageHead title={t("profile")} text={t("registeredFarmerInfo")}/><Card><InfoGrid data={{[t("farmerId")]:farmer.id,[t("name")]:farmer.name,[t("mobileNumber")]:farmer.mobile,[t("village")]:farmer.village,[t("district")]:farmer.district,[t("crop")]:farmer.crop,[t("quantity")]:farmer.quantity,[t("accountStatus")]:farmer.status}}/></Card></section>}
+function Profile({farmer,t}){return <section><PageHead title={t("profile")} text={t("registeredFarmerInfo")}/><Card><InfoGrid data={{[t("farmerId")]:farmer.id,[t("name")]:farmer.name,[t("mobileNumber")]:farmer.mobile,[t("village")]:farmer.village,[t("district")]:farmer.district,[t("accountStatus")]:farmer.status}}/></Card></section>}
 
-function Produce({farmer,t}){return <section><PageHead title={t("produceDetails")} text={t("produceSubmitted")}/><Card><table><thead><tr><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("centre")}</th><th>{t("verification")}</th></tr></thead><tbody><tr><td>{farmer.crop}</td><td>{farmer.quantity}</td><td>Jaipur Central Procurement Centre</td><td><span className="badge green">{t("pending")}</span></td></tr></tbody></table></Card></section>}
+function Produce({farmer,tokens=[],t}){return <section><PageHead title={t("produceDetails")} text={t("produceSubmitted")}/><Card><table><thead><tr><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("centre")}</th><th>{t("verification")}</th></tr></thead><tbody>{tokens.length?tokens.map(x=><tr key={x.token}><td>{x.crop||"-"}</td><td>{x.quantity||"-"}</td><td>{x.centre||"-"}</td><td><span className={"badge "+(x.status==="Processed"?"green":"yellow")}>{x.status||t("pending")}</span></td></tr>):<tr><td colSpan="4">{t("noToken")}</td></tr>}</tbody></table></Card></section>}
 
 function getTodayDateString(){
   const d=new Date();
@@ -1127,14 +1143,9 @@ function BookToken({centres,slots=[],tokens=[],onBook,t}){
   const selectedCentre=centres.find(c=>c.id===centre);
   const matchingSlots=slots.filter(s=>String(s.centre_id)===String(centre) && String(s.date)===String(date));
   const selectedSlot=matchingSlots.find(s=>s.time_window===time) || matchingSlots[0];
-  const normalAllocation=selectedCentre?Math.floor(selectedCentre.capacity*0.8):0;
-  const priorityAllocation=selectedCentre?selectedCentre.capacity-normalAllocation:0;
-  const centreTokens=selectedCentre?tokens.filter(x=>x.centreId===selectedCentre.id || (!x.centreId&&x.centre===selectedCentre.name)).filter(x=>x.status!=="Cancelled"):[];
-  const normalUsed=centreTokens.filter(x=>(x.bookingType||"normal")==="normal").length;
-  const priorityUsed=centreTokens.filter(x=>x.bookingType==="priority").length;
-  const totalAvailable=selectedCentre?Math.max(0,selectedCentre.capacity-selectedCentre.today):0;
-  const normalAvailable=Math.max(0,normalAllocation-normalUsed);
-  const priorityAvailable=Math.max(0,priorityAllocation-priorityUsed);
+  const normalAvailable=selectedSlot?Math.max(0,selectedSlot.general_capacity-selectedSlot.general_booked):0;
+  const priorityAvailable=selectedSlot?Math.max(0,selectedSlot.priority_capacity-selectedSlot.priority_booked):0;
+  const totalAvailable=normalAvailable+priorityAvailable;
   const categoryAvailable=bookingType==="priority"?priorityAvailable:normalAvailable;
   const canSubmit=Boolean(centre&&date&&time&&crop&&quantity&&Number(quantity)>0&&selectedSlot?.id);
 
@@ -1202,9 +1213,26 @@ function Queue({tokens,selected,onCancel,t}){
     <div><span>{t("timeSlot")}</span><strong>{bookedToken.time}</strong></div>
   </div>{isWaiting?<div className="queue-actions"><span className="badge yellow">{t("waiting")}</span><span className="muted">{t("waitReason")}</span></div>:active?<div className="queue-actions"><span className="badge green">{bookedToken.bookingType==="priority"?t("priorityBooking"):t("normalBooking")}</span><button className="danger-button" onClick={()=>{if(window.confirm(t("cancelBookingConfirm")))onCancel(bookedToken.token)}}>✕ {t("cancelBooking")}</button></div>:<div className="queue-actions"><span className="badge red">{t("cancelled")}</span></div>}</Card>:<Card><Empty text={t("noToken")}/></Card>}<Card title={t("procurementTimeline")}><div className="horizontal-timeline">{["tokenConfirmed","inQueue","verification","procured","payment"].map((key,i)=><div className={i<2&&active&&!isWaiting?"hstep done":"hstep"} key={key}><span>{i<2&&active&&!isWaiting?"✓":i+1}</span><b>{t(key)}</b></div>)}</div></Card></section>
 }
-function Payment({t}){return <section><PageHead title={t("paymentStatus")} text={t("trackPayment")}/><Card><div className="payment-card"><div className="big-icon">💰</div><h2>{t("paymentPending")}</h2><p>{t("paymentUpdateAfter")}</p><div className="info-row"><span>{t("expectedAmount")}</span><b>₹ 1,25,000</b></div><div className="info-row"><span>{t("paymentMethod")}</span><b>{t("bankTransfer")}</b></div></div></Card></section>}
+function Payment({t,payments=[]}){
+  const [pref,setPref]=useState(localStorage.getItem("prefPayment")||"Bank Transfer");
+  const totalPending=payments.filter(p=>p.payment_status!=="Completed").reduce((s,p)=>s+Number(p.amount||0),0);
+  const totalReceived=payments.filter(p=>p.payment_status==="Completed").reduce((s,p)=>s+Number(p.amount||0),0);
+  return <section><PageHead title={t("paymentStatus")} text={t("trackPayment")}/>
+    <Card title="Payment Preferences">
+      <div style={{display:"flex", alignItems:"center", gap:"10px", marginBottom:"15px"}}>
+        <label>Preferred Payment Method:</label>
+        <select value={pref} onChange={e=>{setPref(e.target.value);localStorage.setItem("prefPayment",e.target.value);}}>
+          <option value="Bank Transfer">Bank Transfer</option>
+          <option value="UPI">UPI</option>
+          <option value="Wallet">Digital Wallet</option>
+        </select>
+      </div>
+    </Card>
+    {payments.length?<><Card><div className="payment-card"><div className="big-icon">💰</div><h2>{totalPending>0?t("paymentPending"):t("processed")}</h2><p>{t("paymentUpdateAfter")}</p><div className="info-row"><span>{t("expectedAmount")} ({t("pending")})</span><b>₹{totalPending.toLocaleString("en-IN")}</b></div><div className="info-row"><span>{t("received")}</span><b>₹{totalReceived.toLocaleString("en-IN")}</b></div></div></Card><Card title={t("paymentHistory")}><table><thead><tr><th>{t("amount")}</th><th>{t("paymentMethod")}</th><th>{t("status")}</th><th>{t("date")}</th></tr></thead><tbody>{payments.map((p,i)=><tr key={p.payment_id||i}><td><b>₹{Number(p.amount||0).toLocaleString("en-IN")}</b></td><td>{p.payment_method||pref||t("bankTransfer")}</td><td><span className={"badge "+(p.payment_status==="Completed"?"green":"yellow")}>{p.payment_status==="Completed"?t("processed"):t("pending")}</span></td><td>{p.paid_at?new Date(p.paid_at).toLocaleDateString():p.created_at?new Date(p.created_at).toLocaleDateString():"—"}</td></tr>)}</tbody></table></Card></>:<Card><div className="payment-card"><div className="big-icon">💰</div><h2>{t("paymentPending")}</h2><p>{t("paymentUpdateAfter")}</p><div className="info-row"><span>{t("status")}</span><b>{t("noToken")}</b></div></div></Card>}
+  </section>;
+}
 
-function Notifications({t,notifications=[],markNotificationRead,farmerId}){const mine=notifications.filter(n=>n.farmerId===farmerId);const render=n=>{const d=n.data||{};if(n.type==="booking")return <><b>{t("bookingNotificationTitle")}</b><small>{t("bookingNotificationText")} {t("tokenNumber")}: {d.token} • {t("procurementCentre")}: {d.centre} • {t("date")}: {d.date} • {t("time")}: {d.time} • {t("crop")}: {d.crop||"—"}</small><small>{t("reachCentre")}</small></>;return <><b>{t("saleNotificationTitle")}</b><small>{t("saleNotificationText")} • {t("crop")}: {d.crop} • {t("quantityLabel")}: {d.quantity} • {t("paymentAmount")}: {d.amount} • {t("procurementCentre")}: {d.centre} • {t("status")}: {t("paid")}</small></>};const staticNotes=[t("note1"),t("note2"),t("note3"),t("note4")];return <section><PageHead title={t("notificationTitle")} text={t("importantUpdates")}/><div className="notice-list">{mine.map(n=><button type="button" className={"notice notification-button "+(!n.read?"unread":"")} key={n.id} onClick={()=>markNotificationRead?.(n.id)}><span>🔔</span><div>{render(n)}{!n.read&&<em>{t("unread")}</em>}</div></button>)}{staticNotes.map((n,i)=><div className="notice" key={`static-${i}`}><span>🔔</span><div><b>{n}</b><small>{t("today")} • 10:{20+i*5} AM</small></div></div>)}{!mine.length&&<div className="data-note">ℹ️ {t("noNewNotifications")}</div>}</div></section>}
+function Notifications({t,notifications=[],markNotificationRead,farmerId}){const mine=notifications.filter(n=>n.farmerId===farmerId);const render=n=>{const d=n.data||{};if(n.type==="booking")return <><b>{t("bookingNotificationTitle")}</b><small>{t("bookingNotificationText")} {t("tokenNumber")}: {d.token} • {t("procurementCentre")}: {d.centre} • {t("date")}: {d.date} • {t("time")}: {d.time} • {t("crop")}: {d.crop||"—"}</small><small>{t("reachCentre")}</small></>;return <><b>{t("saleNotificationTitle")}</b><small>{t("saleNotificationText")} • {t("crop")}: {d.crop} • {t("quantityLabel")}: {d.quantity} • {t("paymentAmount")}: {d.amount} • {t("procurementCentre")}: {d.centre} • {t("status")}: {t("paid")}</small></>};return <section><PageHead title={t("notificationTitle")} text={t("importantUpdates")}/><div className="notice-list">{mine.map(n=><button type="button" className={"notice notification-button "+(!n.read?"unread":"")} key={n.id} onClick={()=>markNotificationRead?.(n.id)}><span>🔔</span><div>{render(n)}{!n.read&&<em>{t("unread")}</em>}</div></button>)}{!mine.length&&<div className="data-note">ℹ️ {t("noNewNotifications")}</div>}</div></section>}
 
 function CancelBooking({tokens,onCancel,setPage,t}){const active=[...tokens].reverse().find(x=>x.status!=="Cancelled");return <section><PageHead title={t("cancelBookingTitle")} text={t("cancelBookingDesc")} t={t}/><Card>{active?<div className="cancel-card"><div className="cancel-card-icon">✕</div><div className="cancel-card-content"><span className="eyebrow">{t("activeBooking")}</span><h2>{active.token}</h2><p>{active.centre} · {active.date} · {active.time}</p><p className="cancel-question">{t("cancelBookingConfirm")}</p><div className="cancel-actions"><button className="danger-button" onClick={()=>{if(window.confirm(t("cancelBookingConfirm"))){onCancel(active.token);}}}>✕ {t("confirmCancel")}</button><button className="secondary" onClick={()=>setPage("queue")}>{t("keepBooking")}</button></div></div></div>:<Empty text={t("noActiveBooking")}/>}</Card></section>}
 
@@ -1230,7 +1258,38 @@ const advisoryCropKeys=["wheat","mustard","bajra","maize","gram"];
 const advisoryCropWindows={wheat:"January–April",mustard:"January–March & November–December",bajra:"July–October",maize:"July–October",gram:"January–March & November–December"};
 
 
-function FarmerAnalysis({farmer,t,tokens=[]}){const cropData=cropSalesHistoryData[farmer.id]||cropSalesHistoryData.F001;const totalSold=cropData.reduce((s,x)=>s+x.quantity,0);const received=paymentHistoryData.reduce((s,x)=>s+x.received,0);const pending=paymentHistoryData.reduce((s,x)=>s+x.pending,0);return <section className="analysis-report-area"><div className="analysis-toolbar"><div><PageHead title={t("analysisTitle")} text={t("analysisDesc")} t={t}/></div><button className="report-button generate-report-button" onClick={()=>window.print()}>📄 {t("generateReport")}</button></div><div className="analysis-cards farmer-analysis-summary"><div className="analysis-card"><span>{t("totalCropSold")}</span><strong>{totalSold.toLocaleString()}</strong><small>{t("kg")}</small></div><div className="analysis-card"><span>{t("totalPayments")}</span><strong>₹{received.toLocaleString("en-IN")}</strong><small>{t("received")}</small></div><div className="analysis-card"><span>{t("pendingAmount")}</span><strong>₹{pending.toLocaleString("en-IN")}</strong><small>{t("pending")}</small></div><div className="analysis-card"><span>{t("transactions")}</span><strong>{paymentHistoryData.length}</strong><small>{t("status")}</small></div></div><div className="analysis-chart-grid"><div className="analysis-chart-card"><h2>{t("paymentHistory")}</h2><p className="chart-description">{t("paymentHistoryDesc")}</p><ResponsiveContainer width="100%" height={320}><BarChart data={paymentHistoryData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Bar dataKey="received" name={t("received")} fill="#1f8f5f" radius={[6,6,0,0]}/><Bar dataKey="pending" name={t("pendingAmount")} fill="#b9d9c6" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></div><div className="analysis-chart-card"><h2>{t("cropSalesHistory")}</h2><p className="chart-description">{t("cropSalesHistoryDesc")}</p><ResponsiveContainer width="100%" height={320}><LineChart data={cropData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Line type="monotone" dataKey="quantity" name={t("quantitySold")} stroke="#1f8f5f" strokeWidth={3} dot={{r:4}}/></LineChart></ResponsiveContainer></div></div><div className="advisory-section"><div className="advisory-heading"><div><h2>{t("cropAdvisory")}</h2><p>{t("cropAdvisoryDesc")}</p></div></div><div className="analysis-chart-card"><h2>{t("advisoryGraph")}</h2><p className="chart-description">{t("advisoryGraphDesc")}</p><ResponsiveContainer width="100%" height={360}><LineChart data={rajasthanSellingAdvisory}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis domain={[0,5]} ticks={[1,2,3,4,5]}/><Tooltip/><Legend/><Line type="monotone" dataKey="wheat" name={t("wheat")} stroke="#1f8f5f" strokeWidth={3}/><Line type="monotone" dataKey="mustard" name={t("mustard")} stroke="#d4a72c" strokeWidth={3}/><Line type="monotone" dataKey="bajra" name={t("bajra")} stroke="#8b6f47" strokeWidth={3}/><Line type="monotone" dataKey="maize" name={t("maize")} stroke="#e28a2b" strokeWidth={3}/><Line type="monotone" dataKey="gram" name={t("gram")} stroke="#6f8f45" strokeWidth={3}/></LineChart></ResponsiveContainer></div><div className="farmer-advisory-highlight"><div><span className="eyebrow">🌾 {t("recommendedCrop")}</span><h3>{t((String(farmer.crop||"").toLowerCase()==="wheat"?"wheat":String(farmer.crop||"").toLowerCase()==="mustard"?"mustard":String(farmer.crop||"").toLowerCase()==="bajra"?"bajra":String(farmer.crop||"").toLowerCase()==="maize"?"maize":"gram"))}</h3><p>{t("bestSellingWindow")}: <strong>{advisoryCropWindows[String(farmer.crop||"").toLowerCase()==="wheat"?"wheat":String(farmer.crop||"").toLowerCase()==="mustard"?"mustard":String(farmer.crop||"").toLowerCase()==="bajra"?"bajra":String(farmer.crop||"").toLowerCase()==="maize"?"maize":"gram"]}</strong></p></div><div className="advisory-highlight-note">{t("advisoryNote")}</div></div><div className="advisory-grid">{advisoryCropKeys.map(key=><div className="advisory-card" key={key}><strong>{t(key)}</strong><span>{t("bestSellingWindow")}</span><b>{advisoryCropWindows[key]}</b></div>)}</div><div className="data-note">ℹ️ {t("advisoryNote")}</div></div><div className="data-note">ℹ️ {t("demoDataNote")}</div><div className="print-only-report-details"><div className="print-report-heading"><div className="report-brand"><img src="/assets/images/procura-logo.png" alt="Procura"/><div><strong>{t("agroVision")}</strong><span>{t("smartProcurement")}</span></div></div><h2>{t("farmerCompleteReport")}</h2><p>{t("farmerCompleteReportDesc")}</p></div><h3>{t("farmerDetails")}</h3><div className="table-wrap"><table><tbody><tr><th>{t("farmerId")}</th><td>{farmer.id}</td><th>{t("name")}</th><td>{farmer.name}</td></tr><tr><th>{t("mobileNumber")}</th><td>{farmer.mobile}</td><th>{t("village")}</th><td>{farmer.village}</td></tr><tr><th>{t("district")}</th><td>{farmer.district}</td><th>{t("crop")}</th><td>{farmer.crop}</td></tr><tr><th>{t("quantity")}</th><td>{farmer.quantity}</td><th>{t("accountStatus")}</th><td>{farmer.status}</td></tr></tbody></table></div><h3>{t("purchasingDetails")}</h3><div className="table-wrap"><table><thead><tr><th>{t("tokenNumber")}</th><th>{t("centre")}</th><th>{t("date")}</th><th>{t("time")}</th><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("status")}</th></tr></thead><tbody>{tokens.length?tokens.map(x=><tr key={x.token}><td>{x.token}</td><td>{x.centre}</td><td>{x.date}</td><td>{x.time}</td><td>{farmer.crop}</td><td>{farmer.quantity}</td><td>{x.status}</td></tr>):<tr><td colSpan="7">{t("noPurchasingDetails")}</td></tr>}</tbody></table></div><h3>{t("paymentDetails")}</h3><div className="table-wrap"><table><thead><tr><th>{t("month")}</th><th>{t("received")}</th><th>{t("pendingAmount")}</th></tr></thead><tbody>{paymentHistoryData.map(x=><tr key={x.month}><td>{x.month}</td><td>₹{x.received.toLocaleString("en-IN")}</td><td>₹{x.pending.toLocaleString("en-IN")}</td></tr>)}</tbody></table></div><h3>{t("paymentChart")}</h3><div className="report-chart"><ResponsiveContainer width="100%" height={300}><BarChart data={paymentHistoryData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Bar dataKey="received" name={t("received")} fill="#1f8f5f"/><Bar dataKey="pending" name={t("pendingAmount")} fill="#b9d9c6"/></BarChart></ResponsiveContainer></div><h3>{t("cropChart")}</h3><div className="report-chart"><ResponsiveContainer width="100%" height={300}><LineChart data={cropData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Line type="monotone" dataKey="quantity" name={t("quantitySold")} stroke="#1f8f5f" strokeWidth={3}/></LineChart></ResponsiveContainer></div></div></section>}
+function FarmerAnalysis({farmer,t,tokens=[],payments=[]}){
+  const totalSold=tokens.reduce((s,x)=>s+Number(x.quantity||0),0);
+  const received=payments.filter(p=>p.payment_status==="Completed").reduce((s,p)=>s+Number(p.amount||0),0);
+  const pending=payments.filter(p=>p.payment_status!=="Completed").reduce((s,p)=>s+Number(p.amount||0),0);
+  const transactions=payments.length;
+  const cropTotals={};
+  tokens.forEach(x=>{const c=x.crop||"Unknown";cropTotals[c]=(cropTotals[c]||0)+Number(x.quantity||0);});
+  const cropChartData=Object.entries(cropTotals).filter(([crop])=>crop!=="Unknown"&&crop!=="").map(([crop,quantity])=>({crop,quantity}));
+  const paymentStatusTotals={};
+  payments.forEach(p=>{const s=p.payment_status||"Pending";paymentStatusTotals[s]=(paymentStatusTotals[s]||0)+Number(p.amount||0);});
+  const paymentChartData=Object.entries(paymentStatusTotals).map(([status,amount])=>({status,amount}));
+  return <section className="analysis-report-area">
+    <div className="analysis-toolbar"><div><PageHead title={t("analysisTitle")} text={t("analysisDesc")} t={t}/></div><button className="report-button generate-report-button" onClick={()=>window.print()}>📄 {t("generateReport")}</button></div>
+    <div className="analysis-cards farmer-analysis-summary">
+      <div className="analysis-card"><span>{t("totalCropSold")}</span><strong>{totalSold.toLocaleString()}</strong><small>{t("kg")}</small></div>
+      <div className="analysis-card"><span>{t("totalPayments")}</span><strong>₹{received.toLocaleString("en-IN")}</strong><small>{t("received")}</small></div>
+      <div className="analysis-card"><span>{t("pendingAmount")}</span><strong>₹{pending.toLocaleString("en-IN")}</strong><small>{t("pending")}</small></div>
+      <div className="analysis-card"><span>{t("transactions")}</span><strong>{transactions}</strong><small>{t("status")}</small></div>
+    </div>
+    <div className="analysis-chart-grid">
+      <div className="analysis-chart-card">
+        <h2>{t("paymentHistory")}</h2><p className="chart-description">{t("paymentHistoryDesc")}</p>
+        {paymentChartData.length?<ResponsiveContainer width="100%" height={320}><BarChart data={paymentChartData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="status"/><YAxis/><Tooltip/><Legend/><Bar dataKey="amount" name="Amount (₹)" fill="#1f8f5f" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer>:<p>No payment records yet.</p>}
+      </div>
+      <div className="analysis-chart-card">
+        <h2>{t("cropSalesHistory")}</h2><p className="chart-description">{t("cropSalesHistoryDesc")}</p>
+        {cropChartData.length?<ResponsiveContainer width="100%" height={320}><BarChart data={cropChartData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="crop"/><YAxis/><Tooltip/><Legend/><Bar dataKey="quantity" name={t("quantitySold")} fill="#1f8f5f" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer>:<p>No crop records yet.</p>}
+      </div>
+    </div>
+    <div className="data-note">ℹ️ Live data from your bookings and payments.</div>
+  </section>
+}
 
 function FarmerGPS({centres,t,language}){
   const [coords,setCoords]=useState(null);
@@ -1255,19 +1314,57 @@ const ADMIN_PHONE_NUMBER = ""; // Frontend configuration placeholder. Add the re
 
 function CallAdminButton({t,phoneNumber=ADMIN_PHONE_NUMBER}){const configured=Boolean(phoneNumber);return <div className="call-admin-card"><div><strong>📞 {t("callAdmin")}</strong><p>{t("callAdminDesc")}</p></div><button className="primary" onClick={()=>{if(!configured){alert(t("adminPhoneNotConfigured"));return;}if(window.confirm(t("callConfirmation")))window.location.href=`tel:${phoneNumber}`;}}>{configured?`📞 ${t("callAdmin")}`:`📞 ${t("callAdmin")}`}</button></div>}
 
-function FarmerFeedback({farmer,t}){const [rating,setRating]=useState(5);const [comments,setComments]=useState("");const [category,setCategory]=useState("");const [submitted,setSubmitted]=useState(false);const submit=e=>{e.preventDefault();const item={farmerId:farmer.id,farmerName:farmer.name,rating,comments,category,createdAt:new Date().toISOString()};try{const old=JSON.parse(localStorage.getItem("agroVisionFeedback")||"[]");localStorage.setItem("agroVisionFeedback",JSON.stringify([item,...old]));}catch{}setSubmitted(true);setComments("");setRating(5);setCategory("");};return <section><PageHead title={t("feedbackTitle")} text={t("feedbackDesc")}/><Card><form onSubmit={submit}><div className="feedback-profile"><span>👨‍🌾</span><div><b>{farmer.name}</b><small>{t("farmerId")}: {farmer.id}</small></div></div><div className="form-group"><label>{t("rating")}</label><div className="star-rating" role="radiogroup" aria-label={t("rating")}>{[1,2,3,4,5].map(n=><button type="button" key={n} className={n<=rating?"star selected":"star"} onClick={()=>setRating(n)} aria-label={`${n} / 5`}>★</button>)}</div></div><div className="form-group"><label>{t("feedbackCategory")}</label><select value={category} onChange={e=>setCategory(e.target.value)}><option value="">{t("selectCategory")}</option><option value="booking">{t("categoryBooking")}</option><option value="payment">{t("categoryPayment")}</option><option value="centre">{t("categoryCentre")}</option><option value="app">{t("categoryApp")}</option><option value="other">{t("categoryOther")}</option></select></div><div className="form-group"><label>{t("comments")}</label><textarea value={comments} onChange={e=>setComments(e.target.value)} placeholder={t("feedbackPlaceholder")} rows="5" required /></div><button className="primary" type="submit">⭐ {t("submit")}</button>{submitted&&<div className="feedback-success">✓ {t("feedbackSuccess")} <span>{t("feedbackStoredDemo")}</span></div>}</form></Card></section>}
+function FarmerFeedback({farmer,t}){const [rating,setRating]=useState(5);const [comments,setComments]=useState("");const [category,setCategory]=useState("");const [submitted,setSubmitted]=useState(false);const submit=e=>{e.preventDefault();const item={farmerId:farmer.id,farmerName:farmer.name,rating,comments,category,createdAt:new Date().toISOString()};try{const old=JSON.parse(localStorage.getItem("agroVisionFeedback")||"[]");localStorage.setItem("agroVisionFeedback",JSON.stringify([item,...old]));}catch{}setSubmitted(true);setComments("");setRating(5);setCategory("");};return <section><PageHead title={t("feedbackTitle")} text={t("feedbackDesc")}/><Card><form onSubmit={submit}><div className="feedback-profile"><span>👨‍🌾</span><div><b>{farmer.name}</b><small>{t("farmerId")}: {farmer.id}</small></div></div><div className="form-group"><label>{t("rating")}</label><div className="star-rating" role="radiogroup" aria-label={t("rating")}>{[1,2,3,4,5].map(n=><button type="button" key={n} className={n<=rating?"star selected":"star"} onClick={()=>setRating(n)} aria-label={`${n} / 5`}>★</button>)}</div></div><div className="form-group"><label>{t("feedbackCategory")}</label><select value={category} onChange={e=>setCategory(e.target.value)}><option value="">{t("selectCategory")}</option><option value="booking">{t("categoryBooking")}</option><option value="payment">{t("categoryPayment")}</option><option value="centre">{t("categoryCentre")}</option><option value="app">{t("categoryApp")}</option><option value="other">{t("categoryOther")}</option></select></div><div className="form-group"><label>{t("comments")}</label><textarea value={comments} onChange={e=>setComments(e.target.value)} placeholder={t("feedbackPlaceholder")} rows="5" required /></div><button className="primary" type="submit">⭐ {t("submit")}</button>{submitted&&<div className="feedback-success">✓ {t("feedbackSuccess")}</div>}</form></Card></section>}
 
-const rajasthanCropPrices=[
-  {crop:"Wheat",price:"Demo value",unit:"₹/quintal",market:"Rajasthan sample",date:"Demo",trend:"Stable",demand:"Medium"},
-  {crop:"Mustard",price:"Demo value",unit:"₹/quintal",market:"Rajasthan sample",date:"Demo",trend:"Up",demand:"High"},
-  {crop:"Bajra",price:"Demo value",unit:"₹/quintal",market:"Rajasthan sample",date:"Demo",trend:"Stable",demand:"High"},
-  {crop:"Gram",price:"Demo value",unit:"₹/quintal",market:"Rajasthan sample",date:"Demo",trend:"Up",demand:"High"},
-  {crop:"Barley",price:"Demo value",unit:"₹/quintal",market:"Rajasthan sample",date:"Demo",trend:"Stable",demand:"Medium"},
-  {crop:"Maize",price:"Demo value",unit:"₹/quintal",market:"Rajasthan sample",date:"Demo",trend:"Down",demand:"Medium"},
-  {crop:"Guar",price:"Demo value",unit:"₹/quintal",market:"Rajasthan sample",date:"Demo",trend:"Up",demand:"High"}
-];
+function CropPrices({t,farmer}){
+  const [prices, setPrices] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-function CropPrices({t,farmer}){const crop=rajasthanCropPrices.find(x=>x.crop.toLowerCase()===farmer.crop.toLowerCase());return <section><PageHead title={t("cropPrices")} text={t("cropPricesDesc")}/><div className="price-demo-banner">ℹ️ <strong>{t("demoPriceLabel")}</strong> — {t("priceSourceNote")}</div><div className="price-highlight"><div><span className="eyebrow">🌾 {t("trendingCrops")}</span><h2>{crop? t(crop.crop.toLowerCase()):farmer.crop}</h2><p>{t("highDemand")}: <b>{crop?.demand==="High"?t("highDemand"):t("medium")}</b> · {t("trend")}: <b>{crop?.trend==="Up"?t("up"):crop?.trend==="Down"?t("down"):t("stable")}</b></p></div><span className="price-badge">{crop?.price||"—"}</span></div><Card title={t("cropPrices")}><div className="table-wrap"><table><thead><tr><th>{t("crop")}</th><th>{t("amount")}</th><th>{t("priceUnit")}</th><th>{t("market")}</th><th>{t("priceDate")}</th><th>{t("trend")}</th><th>{t("highDemand")}</th></tr></thead><tbody>{rajasthanCropPrices.map(x=><tr key={x.crop}><td><b>{t(x.crop.toLowerCase())}</b></td><td>{x.price==="Demo value"?t("demoValue"):x.price}</td><td>{x.unit}</td><td>{x.market==="Rajasthan sample"?t("sampleMarket"):x.market}</td><td>{x.date==="Demo"?t("demoDate"):x.date}</td><td><span className={"badge "+(x.trend==="Up"?"green":x.trend==="Down"?"red":"yellow")}>{x.trend==="Up"?t("up"):x.trend==="Down"?t("down"):t("stable")}</span></td><td>{x.demand==="High"?t("highDemand"):t("medium")}</td></tr>)}</tbody></table></div></Card></section>}
+  useEffect(() => {
+    apiRequest("/crop-prices-summary")
+      .then(data => { setPrices(data); setLoading(false); })
+      .catch(err => { console.error(err); setLoading(false); });
+  }, []);
+
+  const farmerCrop=farmer.crop||farmer.crop_type||"";
+  const crop=prices.find(x=>x.crop.toLowerCase()===farmerCrop.toLowerCase());
+  
+  return <section>
+    <PageHead title={t("cropPrices")} text={t("cropPricesDesc")}/>
+    <div className="price-highlight">
+      <div>
+        <span className="eyebrow">🌾 {t("trendingCrops")}</span>
+        <h2>{crop ? t(crop.crop.toLowerCase()) : "—"}</h2>
+        <p>{t("highDemand")}: <b>{crop?.demand==="High"?t("highDemand"):t("medium")}</b> · {t("trend")}: <b>{crop?.trend==="Up"?t("up"):crop?.trend==="Down"?t("down"):t("stable")}</b></p>
+      </div>
+      <span className="price-badge">{crop ? `₹${crop.price}` : "—"}</span>
+    </div>
+    <Card title={t("cropPrices")}>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr><th>{t("crop")}</th><th>{t("amount")}</th><th>{t("priceUnit")}</th><th>{t("market")}</th><th>{t("priceDate")}</th><th>{t("trend")}</th><th>{t("highDemand")}</th></tr>
+          </thead>
+          <tbody>
+            {loading ? <tr><td colSpan="7">Loading live prices...</td></tr> : 
+             prices.length ? prices.map(x=>
+              <tr key={x.crop}>
+                <td><b>{t(x.crop.toLowerCase())}</b></td>
+                <td>₹{x.price}</td>
+                <td>{x.unit}</td>
+                <td>{x.market}</td>
+                <td>{x.date}</td>
+                <td><span className={"badge "+(x.trend==="Up"?"green":x.trend==="Down"?"red":"yellow")}>{x.trend==="Up"?t("up"):x.trend==="Down"?t("down"):t("stable")}</span></td>
+                <td>{x.demand==="High"?t("highDemand"):t("medium")}</td>
+              </tr>
+            ) : <tr><td colSpan="7">No price data available</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  </section>
+}
+
 
 function getCentreStats(centre,tokens=[]){
   const centreTokens=tokens.filter(x=>x.centreId===centre.id || (!x.centreId&&x.centre===centre.name)).filter(x=>x.status!=="Cancelled");
@@ -1321,7 +1418,7 @@ function CreateSlotForm({centres,setSlots,t}){
   };
   return <Card title={t("createSlot")}>
     <form onSubmit={submitSlot} className="create-slot-form">
-      <div className="form-group"><label>{t("selectProcurementCentre")}</label><select value={form.centreId} onChange={e=>setForm(prev=>({...prev,centreId:e.target.value}))}>{centres.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+      <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>{t("selectProcurementCentre")}</label><select value={form.centreId} onChange={e=>setForm(prev=>({...prev,centreId:e.target.value}))}>{centres.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
       <div className="form-group"><label>{t("date")}</label><input type="date" min={getTodayDateString()} value={form.date} onChange={e=>setForm(prev=>({...prev,date:e.target.value}))}/></div>
       <div className="form-group"><label>{t("time")}</label><input value={form.timeWindow} placeholder="10:00 AM" onChange={e=>setForm(prev=>({...prev,timeWindow:e.target.value}))}/></div>
       <div className="form-group"><label>{t("normalAllocation")}</label><input type="number" min="1" value={form.generalCapacity} onChange={e=>setForm(prev=>({...prev,generalCapacity:e.target.value}))}/></div>
@@ -1354,11 +1451,11 @@ function AdminWaitingList({waitingList,t}){
   return <section><PageHead title={t("adminWaitingList")} text={t("centreCapacityDesc")} t={t}/><Card><div className="table-wrap"><table><thead><tr><th>{t("queuePosition")}</th><th>{t("farmer")}</th><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("centre")}</th><th>{t("requestDate")}</th><th>{t("requestedSlot")}</th><th>{t("requestType")}</th><th>{t("reason")}</th><th>{t("status")}</th></tr></thead><tbody>{waitingList.length?waitingList.map((x,i)=><tr key={x.id}><td><b>#{x.queuePosition||i+1}</b></td><td>{x.farmer}</td><td>{x.crop}</td><td>{x.quantity}</td><td>{x.centre}</td><td>{x.date}</td><td>{x.time}</td><td><span className="badge yellow">{x.bookingType==="priority"?t("priorityBooking"):t("normalBooking")}</span></td><td>{x.priorityReason==="requiredTime"?t("reasonRequiredTime"):x.priorityReason==="other"?t("reasonOther"):t("reasonNoSlot")}</td><td><span className="badge yellow">{t("pendingReview")}</span></td></tr>):<tr><td colSpan="10">{t("noWaitingRequests")}</td></tr>}</tbody></table></div></Card></section>
 }
 
-function FarmerReports({farmer,tokens,t}){const cropData=cropSalesHistoryData[farmer.id]||cropSalesHistoryData.F001;const totalSold=cropData.reduce((s,x)=>s+x.quantity,0);return <section className="report-page"><PageHead title={t("reportsTitle")} text={t("reportsDesc")} t={t}/><div className="report-toolbar"><div><b>{t("reportsTitle")}</b><span>{t("reportReady")}</span></div><button className="report-button" onClick={()=>window.print()}>📄 {t("generateReport")}</button></div><div className="report-sheet"><div className="report-brand"><img src="/assets/images/procura-logo.png" alt="Procura"/><div><strong>{t("agroVision")}</strong><span>{t("smartProcurement")}</span></div></div><h2>{t("reportsTitle")}</h2><div className="report-summary-grid"><div><small>{t("farmerId")}</small><b>{farmer.id}</b></div><div><small>{t("name")}</small><b>{farmer.name}</b></div><div><small>{t("mobileNumber")}</small><b>{farmer.mobile}</b></div><div><small>{t("village")}</small><b>{farmer.village}</b></div><div><small>{t("district")}</small><b>{farmer.district}</b></div><div><small>{t("crop")}</small><b>{farmer.crop}</b></div><div><small>{t("quantity")}</small><b>{farmer.quantity}</b></div><div><small>{t("totalCropSold")}</small><b>{totalSold.toLocaleString()} {t("kg")}</b></div><div><small>{t("accountStatus")}</small><b>{farmer.status}</b></div></div><h3>{t("cropSalesHistory")}</h3><div className="table-wrap"><table><thead><tr><th>{t("month")}</th><th>{t("crop")}</th><th>{t("quantitySold")}</th></tr></thead><tbody>{cropData.map(x=><tr key={x.month}><td>{x.month}</td><td>{farmer.crop}</td><td>{x.quantity.toLocaleString()}</td></tr>)}</tbody></table></div><h3>{t("queueStatus")}</h3><div className="table-wrap"><table><thead><tr><th>{t("tokenNumber")}</th><th>{t("centre")}</th><th>{t("date")}</th><th>{t("status")}</th></tr></thead><tbody>{tokens.length?tokens.map(x=><tr key={x.token}><td>{x.token}</td><td>{x.centre}</td><td>{x.date}</td><td>{x.status}</td></tr>):<tr><td colSpan="4">{t("noToken")}</td></tr>}</tbody></table></div><h3>{t("paymentChart")}</h3><div className="report-chart"><ResponsiveContainer width="100%" height={300}><BarChart data={paymentHistoryData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Bar dataKey="received" name={t("received")} fill="#1f8f5f"/><Bar dataKey="pending" name={t("pendingAmount")} fill="#b9d9c6"/></BarChart></ResponsiveContainer></div><h3>{t("cropChart")}</h3><div className="report-chart"><ResponsiveContainer width="100%" height={300}><LineChart data={cropData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis/><Tooltip/><Legend/><Line type="monotone" dataKey="quantity" name={t("quantitySold")} stroke="#1f8f5f" strokeWidth={3}/></LineChart></ResponsiveContainer></div><h3>{t("advisoryGraph")}</h3><div className="report-chart"><ResponsiveContainer width="100%" height={330}><LineChart data={rajasthanSellingAdvisory}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis domain={[0,5]}/><Tooltip/><Legend/><Line type="monotone" dataKey="wheat" name={t("wheat")} stroke="#1f8f5f"/><Line type="monotone" dataKey="mustard" name={t("mustard")} stroke="#d4a72c"/><Line type="monotone" dataKey="bajra" name={t("bajra")} stroke="#8b6f47"/><Line type="monotone" dataKey="maize" name={t("maize")} stroke="#e28a2b"/><Line type="monotone" dataKey="gram" name={t("gram")} stroke="#6f8f45"/></LineChart></ResponsiveContainer></div><div className="data-note">ℹ️ {t("advisoryNote")}</div><div className="report-footer">🌱 {t("agroVision")} · {t("smartProcurement")}</div></div></section>}
+function FarmerReports({farmer,tokens,payments=[],t}){const totalSold=tokens.reduce((s,x)=>s+Number(x.quantity||0),0);const cropTotals={};tokens.forEach(x=>{const c=x.crop||"Unknown";cropTotals[c]=(cropTotals[c]||0)+Number(x.quantity||0);});const cropChartData=Object.entries(cropTotals).filter(([crop])=>crop!=="Unknown"&&crop!=="").map(([crop,quantity])=>({crop,quantity}));const paymentChartData=[];const received=payments.filter(p=>p.payment_status==="Completed").reduce((s,p)=>s+Number(p.amount||0),0);const pending=payments.filter(p=>p.payment_status!=="Completed").reduce((s,p)=>s+Number(p.amount||0),0);if(received>0)paymentChartData.push({status:t("received"),amount:received});if(pending>0)paymentChartData.push({status:t("pending"),amount:pending});return <section className="report-page"><PageHead title={t("reportsTitle")} text={t("reportsDesc")} t={t}/><div className="report-toolbar"><div><b>{t("reportsTitle")}</b><span>{t("reportReady")}</span></div><button className="report-button" onClick={()=>window.print()}>📄 {t("generateReport")}</button></div><div className="report-sheet"><div className="report-brand"><img src="/assets/images/procura-logo.png" alt="Procura"/><div><strong>{t("agroVision")}</strong><span>{t("smartProcurement")}</span></div></div><h2>{t("reportsTitle")}</h2><div className="report-summary-grid"><div><small>{t("farmerId")}</small><b>{farmer.id}</b></div><div><small>{t("name")}</small><b>{farmer.name}</b></div><div><small>{t("mobileNumber")}</small><b>{farmer.mobile}</b></div><div><small>{t("village")}</small><b>{farmer.village}</b></div><div><small>{t("district")}</small><b>{farmer.district}</b></div><div><small>{t("crop")}</small><b>{farmer.crop||"—"}</b></div><div><small>{t("quantity")}</small><b>{farmer.quantity||"—"}</b></div><div><small>{t("totalCropSold")}</small><b>{totalSold.toLocaleString()} {t("kg")}</b></div><div><small>{t("accountStatus")}</small><b>{farmer.status}</b></div></div><h3>{t("cropSalesHistory")}</h3><div className="table-wrap"><table><thead><tr><th>{t("tokenNumber")}</th><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("centre")}</th><th>{t("date")}</th></tr></thead><tbody>{tokens.length?tokens.map(x=><tr key={x.token}><td>{x.token}</td><td>{x.crop||"—"}</td><td>{x.quantity||"—"}</td><td>{x.centre||"—"}</td><td>{x.date||"—"}</td></tr>):<tr><td colSpan="5">{t("noToken")}</td></tr>}</tbody></table></div><h3>{t("queueStatus")}</h3><div className="table-wrap"><table><thead><tr><th>{t("tokenNumber")}</th><th>{t("centre")}</th><th>{t("date")}</th><th>{t("status")}</th></tr></thead><tbody>{tokens.length?tokens.map(x=><tr key={x.token}><td>{x.token}</td><td>{x.centre}</td><td>{x.date}</td><td>{x.status}</td></tr>):<tr><td colSpan="4">{t("noToken")}</td></tr>}</tbody></table></div><h3>{t("paymentChart")}</h3><div className="report-chart">{paymentChartData.length?<ResponsiveContainer width="100%" height={300}><BarChart data={paymentChartData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="status"/><YAxis/><Tooltip/><Legend/><Bar dataKey="amount" name={t("amount")} fill="#1f8f5f"/></BarChart></ResponsiveContainer>:<p>No payment records yet.</p>}</div><h3>{t("cropChart")}</h3><div className="report-chart">{cropChartData.length?<ResponsiveContainer width="100%" height={300}><BarChart data={cropChartData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="crop"/><YAxis/><Tooltip/><Legend/><Bar dataKey="quantity" name={t("quantitySold")} fill="#1f8f5f" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer>:<p>No crop records yet.</p>}</div><h3>{t("advisoryGraph")}</h3><div className="report-chart"><ResponsiveContainer width="100%" height={330}><LineChart data={rajasthanSellingAdvisory}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="month"/><YAxis domain={[0,5]}/><Tooltip/><Legend/><Line type="monotone" dataKey="wheat" name={t("wheat")} stroke="#1f8f5f"/><Line type="monotone" dataKey="mustard" name={t("mustard")} stroke="#d4a72c"/><Line type="monotone" dataKey="bajra" name={t("bajra")} stroke="#8b6f47"/><Line type="monotone" dataKey="maize" name={t("maize")} stroke="#e28a2b"/><Line type="monotone" dataKey="gram" name={t("gram")} stroke="#6f8f45"/></LineChart></ResponsiveContainer></div><div className="data-note">ℹ️ {t("advisoryNote")}</div><div className="report-footer">🌱 {t("agroVision")} © {t("smartProcurement")}</div></div></section>}
 
-function OperatorApp({tokens=[],farmers=[],onLogout,t}){
+function OperatorApp({tokens=[],farmers=[],onLogout,t,onUpdateBooking}){
   const [page,setPage]=useState("tokens");
-  return <div className="layout"><Sidebar title={t("operatorPortal")||"Operator Portal"} items={[["tokens",t("todaysTokens"),"🎫"],["verification",t("produceVerification"),"⚖️"]]} page={page} setPage={setPage} onLogout={onLogout} t={t}/><main className="content">{page==="tokens"&&<TokenManagement tokens={tokens} t={t}/>} {page==="verification"&&<Verification farmers={farmers} t={t}/>}</main></div>;
+  return <div className="layout"><Sidebar title={t("operatorPortal")||"Operator Portal"} items={[["tokens",t("todaysTokens"),"🎫"],["verification",t("produceVerification"),"✅"]]} page={page} setPage={setPage} onLogout={onLogout} t={t}/><main className="content">{page==="tokens"&&<TokenManagement tokens={tokens} t={t} onUpdateStatus={(id, status)=>onUpdateBooking(id, "status", {status})}/>} {page==="verification"&&<Verification farmers={farmers} tokens={tokens} t={t} onVerify={(id, grade)=>onUpdateBooking(id, "procurement", {grade})}/>}</main></div>;
 }
 
 function AdminApp({
@@ -1371,7 +1468,8 @@ function AdminApp({
   setCentres,
   onLogout,
   t,
-  addSalePaymentNotification
+  addSalePaymentNotification,
+  onUpdateBooking
 }) {
 
   const [page, setPage] = useState("dashboard");
@@ -1433,17 +1531,20 @@ function AdminApp({
           <TokenManagement
             tokens={tokens}
             t={t}
+            onUpdateStatus={(id, status) => onUpdateBooking(id, "status", {status})}
           />
         }
 
         {page === "verification" &&
           <Verification
             farmers={farmers}
+            tokens={tokens}
             t={t}
+            onVerify={(id, grade) => onUpdateBooking(id, "procurement", {grade})}
           />
         }
 
-        {page === "payments" && <AdminPayments t={t} onPaymentCompleted={addSalePaymentNotification}/>}
+        {page === "payments" && <AdminPayments t={t} tokens={tokens} onUpdatePayment={(id, amt) => onUpdateBooking(id, "payment", {payment_status: "Completed", amount: amt})}/>}
 
         {page === "capacity" && <CentreCapacity centres={centres} tokens={tokens} waitingList={waitingList} setCentres={setCentres} slots={slots} setSlots={setSlots} t={t}/>}
         {page === "waiting" && <AdminWaitingList waitingList={waitingList} t={t}/>}
@@ -1459,9 +1560,9 @@ function AdminApp({
   );
 }
 
-function AdminDashboard({farmers,centres,tokens,t}){return <section><PageHead title={t("adminDashboard")} text={t("centralizedManagement")}/><div className="stats"><Stat icon="👨‍🌾" label={t("registeredFarmers")} value={farmers.length}/><Stat icon="🎫" label={t("todaysTokens")} value={tokens.length}/><Stat icon="📦" label={t("completedProcurement")} value="18"/><Stat icon="💰" label={t("pendingPayments")} value="7"/></div><div className="grid2"><Card title={t("centreWiseCapacity")}><table><thead><tr><th>{t("centre")}</th><th>{t("location")}</th><th>{t("today")}</th><th>{t("capacityOnly")}</th><th>{t("status")}</th></tr></thead><tbody>{centres.map(c=><tr key={c.id}><td>{c.name}</td><td>{c.location}</td><td>{c.today}</td><td>{c.capacity}</td><td><span className={"badge "+(c.status==="Open"?"green":"red")}>{c.status==="Open"?t("open"):t("full")}</span></td></tr>)}</tbody></table></Card><Card title={t("recentTokens")}>{tokens.map(x=><div className="mini-row" key={x.token}><b>{x.token}</b><span>{x.farmer}</span><span>{x.time}</span><span className="badge green">{x.status}</span></div>)}</Card></div></section>}
+function AdminDashboard({farmers,centres,tokens,t}){const completedCount=tokens.filter(x=>x.status==="Processed"||x.status==="Completed").length;const pendingPayments=tokens.filter(x=>x.payment_status!=="Completed"&&x.status!=="Cancelled").length;return <section><PageHead title={t("adminDashboard")} text={t("centralizedManagement")}/><div className="stats"><Stat icon="👨‍🌾" label={t("registeredFarmers")} value={farmers.length}/><Stat icon="🎫" label={t("todaysTokens")} value={tokens.length}/><Stat icon="📦" label={t("completedProcurement")} value={completedCount}/><Stat icon="💰" label={t("pendingPayments")} value={pendingPayments}/></div><div className="grid2"><Card title={t("centreWiseCapacity")}><table><thead><tr><th>{t("centre")}</th><th>{t("location")}</th><th>{t("today")}</th><th>{t("capacityOnly")}</th><th>{t("status")}</th></tr></thead><tbody>{centres.map(c=><tr key={c.id}><td>{c.name}</td><td>{c.location}</td><td>{c.today}</td><td>{c.capacity}</td><td><span className={"badge "+(c.status==="Open"?"green":"red")}>{c.status==="Open"?t("open"):t("full")}</span></td></tr>)}</tbody></table></Card><Card title={t("recentTokens")}>{tokens.slice().reverse().slice(0, 15).map(x=><div className="mini-row" key={x.token}><b>{x.token}</b><span>{x.farmer}</span><span style={{lineHeight:"1.3"}}><small style={{color:"#888"}}>{x.date}</small><br/>{x.time}</span><span className="badge green">{x.status}</span></div>)}</Card></div></section>}
 
-function FarmerManagement({farmers,search,setSearch,t}){const data=farmers.filter(f=>f.name.toLowerCase().includes(search.toLowerCase())||f.id.toLowerCase().includes(search.toLowerCase()));return <section><PageHead title={t("registeredFarmers")} text={t("viewManageRecords")}/><Card><input className="search" placeholder={t("searchFarmer")} value={search} onChange={e=>setSearch(e.target.value)}/><table><thead><tr><th>ID</th><th>{t("farmer")}</th><th>{t("mobileNumber")}</th><th>{t("location")}</th><th>{t("crop")}</th><th>{t("status")}</th></tr></thead><tbody>{data.map(f=><tr key={f.id}><td>{f.id}</td><td><b>{f.name}</b></td><td>{f.mobile}</td><td>{f.village}, {f.district}</td><td>{f.crop}</td><td><span className={"badge "+(f.status==="Active"?"green":"yellow")}>{f.status}</span></td></tr>)}</tbody></table></Card></section>}
+function FarmerManagement({farmers,search,setSearch,t}){const data=farmers.filter(f=>String(f.name||"").toLowerCase().includes(search.toLowerCase())||String(f.id||"").toLowerCase().includes(search.toLowerCase()));return <section><PageHead title={t("registeredFarmers")} text={t("viewManageRecords")}/><Card><input className="search" placeholder={t("searchFarmer")} value={search} onChange={e=>setSearch(e.target.value)}/><table><thead><tr><th>ID</th><th>{t("farmer")}</th><th>{t("mobileNumber")}</th><th>{t("location")}</th><th>{t("status")}</th></tr></thead><tbody>{data.map(f=><tr key={f.id}><td>{f.id}</td><td><b>{f.name}</b></td><td>{f.mobile}</td><td>{f.village}, {f.district}</td><td><span className={"badge "+(f.status==="Active"?"green":"yellow")}>{f.status}</span></td></tr>)}</tbody></table></Card></section>}
 
 function CentreManagement({centres,setCentres,t}){
   const [form,setForm]=useState({name:"",location:""});
@@ -1516,11 +1617,19 @@ function CentreManagement({centres,setCentres,t}){
   </section>;
 }
 
-function TokenManagement({tokens,t}){return <section><PageHead title={t("todaysTokens")} text={t("manageQueue")}/><Card><table><thead><tr><th>{t("tokenNumber")}</th><th>{t("farmer")}</th><th>{t("centre")}</th><th>{t("time")}</th><th>{t("queue")}</th><th>{t("status")}</th></tr></thead><tbody>{tokens.map(x=><tr key={x.token}><td><b>{x.token}</b></td><td>{x.farmer}</td><td>{x.centre}</td><td>{x.time}</td><td>#{x.queue}</td><td><span className="badge green">{x.status}</span></td></tr>)}</tbody></table></Card></section>}
+function TokenManagement({tokens,t,onUpdateStatus}){return <section><PageHead title={t("todaysTokens")} text={t("manageQueue")}/><Card><table><thead><tr><th>{t("tokenNumber")}</th><th>{t("farmer")}</th><th>{t("centre")}</th><th>{t("time")}</th><th>{t("queue")}</th><th>{t("status")}</th></tr></thead><tbody>{tokens.map(x=><tr key={x.token}><td><b>{x.token}</b></td><td>{x.farmer}</td><td>{x.centre}</td><td>{x.time}</td><td>#{x.queue}</td><td>{onUpdateStatus?<select value={x.status} onChange={e=>onUpdateStatus(x.bookingId||x.booking_id,e.target.value)}><option value="Confirmed">Confirmed</option><option value="Received">Received</option><option value="Accepted">Accepted</option><option value="Processed">Processed</option><option value="Cancelled">Cancelled</option></select>:<span className="badge green">{x.status}</span>}</td></tr>)}</tbody></table></Card></section>}
 
-function Verification({farmers,t}){return <section><PageHead title={t("produceVerification")} text={t("verifyProduce")}/><Card><table><thead><tr><th>{t("farmer")}</th><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("quality")}</th><th>{t("action")}</th></tr></thead><tbody>{farmers.map(f=><tr key={f.id}><td>{f.name}</td><td>{f.crop}</td><td>{f.quantity}</td><td><span className="badge yellow">{t("pending")}</span></td><td><button className="small-btn">{t("verify")}</button></td></tr>)}</tbody></table></Card></section>}
+function Verification({farmers,tokens=[],t,onVerify}){
+  const [grades,setGrades]=useState({});
+  const bookings=tokens.filter(x=>x.status!=="Cancelled");
+  return <section><PageHead title={t("produceVerification")} text={t("verifyProduce")}/><Card>{bookings.length?<table><thead><tr><th>{t("farmer")}</th><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("quality")}</th><th>{t("action")}</th></tr></thead><tbody>{bookings.map(b=>{const isVerified=b.status==="Verified"||b.status==="Accepted"||b.status==="Processed";return <tr key={b.token}><td>{b.farmer||"—"}</td><td>{b.crop||"—"}</td><td>{b.quantity||"—"}</td><td>{isVerified?<span className="badge green">{b.grade||"A"}</span>:<select value={grades[b.token]||"A"} onChange={e=>setGrades(prev=>({...prev,[b.token]:e.target.value}))}><option value="A">Grade A</option><option value="B">Grade B</option><option value="C">Grade C</option></select>}</td><td>{isVerified?<span className="muted">✓ {t("verified")||"Verified"}</span>:<button className="small-btn" onClick={()=>onVerify?.(b.bookingId||b.booking_id, grades[b.token]||"A")}>{t("verify")}</button>}</td></tr>})}</tbody></table>:<Empty text={t("noToken")}/>}</Card></section>;
+}
 
-function AdminPayments({t,onPaymentCompleted}){const rows=[['F001','Ravi Kumar','₹1,25,000','Bank Transfer','Pending','Wheat','500 kg','Jaipur Central Procurement Centre'],['F002','Mohan Singh','₹87,500','Bank Transfer','Processed','Mustard','350 kg','Chomu Procurement Centre'],['F003','Sita Devi','₹50,000','Bank Transfer','Pending','Wheat','200 kg','Jaipur Central Procurement Centre']];const [paidIds,setPaidIds]=useState([]);return <section><PageHead title={t("paymentStatus")} text={t("monitorPayments")}/><Card><table><thead><tr><th>{t("farmer")}</th><th>{t("procurementAmount")}</th><th>{t("paymentMethod")}</th><th>{t("status")}</th><th>{t("action")}</th></tr></thead><tbody>{rows.map(r=>{const processed=r[4]==="Processed"||paidIds.includes(r[0]);return <tr key={r[0]}><td>{r[1]}</td><td>{r[2]}</td><td>{t("bankTransfer")}</td><td><span className={"badge "+(processed?"green":"yellow")}>{processed?t("processed"):t("pending")}</span></td><td>{processed?<span className="muted">✓ {t("processed")}</span>:<button type="button" className="small-btn" onClick={()=>{setPaidIds(prev=>[...prev,r[0]]);onPaymentCompleted?.({farmerId:r[0],farmer:r[1],crop:r[5],quantity:r[6],amount:r[2],centre:r[7],paymentStatus:"Paid",saleStatus:"Completed"});}}>{t("markPaid")}</button>}</td></tr>})}</tbody></table></Card></section>}
+function AdminPayments({t,tokens=[],onUpdatePayment}){
+  const [amounts,setAmounts]=useState({});
+  const bookings=tokens.filter(x=>x.status!=="Cancelled");
+  return <section><PageHead title={t("paymentStatus")} text={t("monitorPayments")}/><Card>{bookings.length?<table><thead><tr><th>{t("farmer")}</th><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("centre")}</th><th>{t("amount") || "Amount"}</th><th>{t("paymentMethod")}</th><th>{t("status")}</th><th>{t("action")}</th></tr></thead><tbody>{bookings.map(b=>{const processed=b.payment_status==="Completed";const defAmount=b.amount||(Number(b.quantity||0)*50);return <tr key={b.token}><td>{b.farmer||"—"}</td><td>{b.crop||"—"}</td><td>{b.quantity||"—"}</td><td>{b.centre||"—"}</td><td>{processed?`₹${b.amount}`:<input type="number" style={{width:"80px"}} value={amounts[b.token]!==undefined?amounts[b.token]:defAmount} onChange={e=>setAmounts(prev=>({...prev,[b.token]:e.target.value}))}/>}</td><td>{t("bankTransfer")}</td><td><span className={"badge "+(processed?"green":"yellow")}>{processed?t("processed"):t("pending")}</span></td><td>{processed?<span className="muted">✓ {t("processed")}</span>:<button type="button" className="small-btn" onClick={()=>onUpdatePayment?.(b.bookingId||b.booking_id, amounts[b.token]!==undefined?Number(amounts[b.token]):defAmount)}>{t("markPaid")}</button>}</td></tr>})}</tbody></table>:<Empty text={t("noToken")}/>}</Card></section>;
+}
 
 function PageHead({title,text,t}){return <div className="page-head"><div><h1>{title}</h1><p>{text}</p></div><div className="user-chip">🌾 {t ? t("agroVision") : "Procura"}</div></div>}
 function Card({title,children}){return <div className="card">{title&&<h2>{title}</h2>}{children}</div>}
@@ -1557,20 +1666,35 @@ const procurementTrend = [
 
 function Analysis({farmers=[],tokens=[],t}) {
 
-  const totalRegistered = cropAnalytics.reduce(
-    (sum , item)=> sum + item.registered,
-    0
-  )
+  // Build crop analytics from real data
+  const cropMap = {};
+  farmers.forEach(f => {
+    const c = f.crop || "Unknown";
+    if (!cropMap[c]) cropMap[c] = { crop: c, registered: 0, purchased: 0, quantity: 0 };
+    cropMap[c].registered++;
+  });
+  tokens.filter(x => x.status !== "Cancelled").forEach(b => {
+    const c = b.crop || "Unknown";
+    if (!cropMap[c]) cropMap[c] = { crop: c, registered: 0, purchased: 0, quantity: 0 };
+    cropMap[c].purchased++;
+    cropMap[c].quantity += Number(b.quantity || 0);
+  });
+  const liveCropAnalytics = Object.values(cropMap).filter(x => x.crop !== "Unknown" && x.crop !== "" && (x.registered > 0 || x.purchased > 0));
 
-  const totalPurchased = cropAnalytics.reduce(
-    (sum, item)=> sum+ item.purchased,
-    0
-  )
+  // Build procurement trend from real tokens
+  const monthMap = {};
+  tokens.filter(x => x.status !== "Cancelled" && x.date).forEach(b => {
+    const d = new Date(b.date);
+    const monthName = d.toLocaleString("default", { month: "long" });
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+    if (!monthMap[key]) monthMap[key] = { month: monthName, quantity: 0, sortKey: key };
+    monthMap[key].quantity += Number(b.quantity || 0);
+  });
+  const liveProcurementTrend = Object.values(monthMap).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
-  const totalQuantity = cropAnalytics.reduce(
-    (sum, item)=> sum + item.quantity,
-    0
-  )
+  const totalRegistered = liveCropAnalytics.reduce((sum, item) => sum + item.registered, 0);
+  const totalPurchased = liveCropAnalytics.reduce((sum, item) => sum + item.purchased, 0);
+  const totalQuantity = liveCropAnalytics.reduce((sum, item) => sum + item.quantity, 0);
 
    return (
     <div className="analysis-page">
@@ -1620,7 +1744,7 @@ function Analysis({farmers=[],tokens=[],t}) {
         <div className="analysis-card">
           <h3>{t("totalCrops")}</h3>
           <div className="analysis-number"> 
-            {cropAnalytics.length}
+            {liveCropAnalytics.length}
             <p>{t("cropCategories")}</p>
           </div>
         </div>
@@ -1640,7 +1764,7 @@ function Analysis({farmers=[],tokens=[],t}) {
 
         <ResponsiveContainer width="100%" height={350}>
 
-          <BarChart data={cropAnalytics}>
+          <BarChart data={liveCropAnalytics}>
 
             <CartesianGrid strokeDasharray="3 3" />
 
@@ -1656,7 +1780,7 @@ function Analysis({farmers=[],tokens=[],t}) {
               dataKey="quantity"
               name="Purchased Quantity (Kg)"
             >
-              {cropAnalytics.map((entry, index) => (
+              {liveCropAnalytics.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
                   fill={[
@@ -1689,7 +1813,7 @@ function Analysis({farmers=[],tokens=[],t}) {
         <PieChart>
 
           <Pie
-            data={cropAnalytics}
+            data={liveCropAnalytics}
             dataKey="quantity"
             nameKey="crop"
             cx="50%"
@@ -1698,7 +1822,7 @@ function Analysis({farmers=[],tokens=[],t}) {
             label
           >
 
-            {cropAnalytics.map((entry, index) => (
+            {liveCropAnalytics.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
                 fill={[
@@ -1735,7 +1859,7 @@ function Analysis({farmers=[],tokens=[],t}) {
 
         <ResponsiveContainer width="100%" height={350}>
 
-          <BarChart data={cropAnalytics}>
+          <BarChart data={liveCropAnalytics}>
 
             <CartesianGrid strokeDasharray="3 3" />
 
@@ -1777,7 +1901,7 @@ function Analysis({farmers=[],tokens=[],t}) {
 
         <ResponsiveContainer width="100%" height={350}>
 
-          <LineChart data={procurementTrend}>
+          <LineChart data={liveProcurementTrend}>
 
             <CartesianGrid strokeDasharray="3 3" />
 
@@ -1810,7 +1934,7 @@ function Analysis({farmers=[],tokens=[],t}) {
         <h3>{t("allPurchasingDetails")}</h3>
         <div className="table-wrap"><table><thead><tr><th>{t("tokenNumber")}</th><th>{t("farmer")}</th><th>{t("farmerId")}</th><th>{t("centre")}</th><th>{t("date")}</th><th>{t("time")}</th><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("status")}</th></tr></thead><tbody>{tokens.length?tokens.map(x=>{const f=farmers.find(y=>y.id===x.farmerId);return <tr key={x.token}><td>{x.token}</td><td>{x.farmer}</td><td>{x.farmerId}</td><td>{x.centre}</td><td>{x.date}</td><td>{x.time}</td><td>{f?.crop||"—"}</td><td>{f?.quantity||"—"}</td><td>{x.status}</td></tr>}):<tr><td colSpan="9">{t("noPurchasingDetails")}</td></tr>}</tbody></table></div>
         <h3>{t("adminPaymentDetails")}</h3>
-        <div className="table-wrap"><table><thead><tr><th>{t("farmer")}</th><th>{t("procurementAmount")}</th><th>{t("paymentMethod")}</th><th>{t("status")}</th></tr></thead><tbody>{[["Ravi Kumar","₹1,25,000","Bank Transfer","Pending"],["Mohan Singh","₹87,500","Bank Transfer","Processed"],["Sita Devi","₹50,000","Bank Transfer","Pending"]].map(r=><tr key={r[0]}><td>{r[0]}</td><td>{r[1]}</td><td>{t("bankTransfer")}</td><td>{r[3]==="Processed"?t("processed"):t("pending")}</td></tr>)}</tbody></table></div>
+        <div className="table-wrap"><table><thead><tr><th>{t("farmer")}</th><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("paymentMethod")}</th><th>{t("status")}</th></tr></thead><tbody>{tokens.filter(x=>x.status!=="Cancelled").map(b=><tr key={b.token}><td>{b.farmer||"—"}</td><td>{b.crop||"—"}</td><td>{b.quantity||"—"}</td><td>{t("bankTransfer")}</td><td>{b.payment_status==="Completed"?t("processed"):t("pending")}</td></tr>)}</tbody></table></div>
       </div>
     </div>
   );

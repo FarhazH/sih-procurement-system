@@ -49,17 +49,15 @@ except FileNotFoundError:
 # =========================================================
 
 class RegisterRequest(BaseModel):
-    name: str
     phone: str
     password: str
-    role: str = "farmer"
+    name: str
     village: Optional[str] = None
     district: Optional[str] = None
     state: Optional[str] = "Rajasthan"
     address: Optional[str] = None
     preferred_language: Optional[str] = "en"
-    crop: Optional[str] = None
-    quantity: Optional[int] = None
+    email: Optional[str] = None
 
 class LoginRequest(BaseModel):
     phone: str
@@ -90,6 +88,7 @@ class PaymentUpdate(BaseModel):
     payment_status: str
     payment_method: Optional[str] = None
     transaction_id: Optional[str] = None
+    amount: Optional[float] = None
 
 class CropCreate(BaseModel):
     name_en: str
@@ -351,7 +350,10 @@ def book_slot(data: BookRequest, db: Session = Depends(get_db)):
         db.add(Notification(user_id=user.id, booking_id=new_booking.id, notification_type="Booking",
                              message=f"Your booking #{new_booking.id} has been confirmed (general pool)."))
         db.commit()
-        return {"message": "Booking confirmed", "booking_id": new_booking.id, "pool_type": "general"}
+        queue = db.query(Booking).join(Slot).filter(Slot.centre_id == slot.centre_id, Booking.id <= new_booking.id).count()
+        centre = db.query(Centre).get(slot.centre_id)
+        token_str = f"{centre.name[:3].upper()}-{queue}" if centre else f"T-{new_booking.id}"
+        return {"message": "Booking confirmed", "booking_id": new_booking.id, "pool_type": "general", "queue": queue, "token": token_str}
 
     elif slot.priority_booked < slot.priority_capacity and user.missed_count >= 1:
         slot.priority_booked += 1
@@ -364,7 +366,10 @@ def book_slot(data: BookRequest, db: Session = Depends(get_db)):
         db.add(Notification(user_id=user.id, booking_id=new_booking.id, notification_type="Booking",
                              message=f"Your priority booking #{new_booking.id} has been confirmed."))
         db.commit()
-        return {"message": "Booking confirmed", "booking_id": new_booking.id, "pool_type": "priority"}
+        queue = db.query(Booking).join(Slot).filter(Slot.centre_id == slot.centre_id, Booking.id <= new_booking.id).count()
+        centre = db.query(Centre).get(slot.centre_id)
+        token_str = f"{centre.name[:3].upper()}-{queue}" if centre else f"T-{new_booking.id}"
+        return {"message": "Booking confirmed", "booking_id": new_booking.id, "pool_type": "priority", "queue": queue, "token": token_str}
 
     else:
         user.missed_count += 1
@@ -384,12 +389,15 @@ def get_my_bookings(user_id: int, db: Session = Depends(get_db), owner=Depends(v
     for b in bookings:
         slot = db.query(Slot).get(b.slot_id)
         centre = db.query(Centre).get(slot.centre_id) if slot else None
+        queue = db.query(Booking).join(Slot).filter(Slot.centre_id == slot.centre_id, Booking.id <= b.id).count() if slot else 1
+        token_str = f"{centre.name[:3].upper()}-{queue}" if centre else f"T-{b.id}"
         result.append({
             "booking_id": b.id, "slot_id": b.slot_id,
             "centre_name": centre.name if centre else None,
             "date": slot.date if slot else None, "time_window": slot.time_window if slot else None,
             "crop_type": b.crop_type, "quantity": b.quantity, "unit": b.unit, "pool_type": b.pool_type,
-            "status": b.status, "payment_status": b.payment_status, "created_at": b.created_at
+            "status": b.status, "payment_status": b.payment_status, "created_at": b.created_at,
+            "queue": queue, "token": token_str
         })
     return result
 
@@ -492,10 +500,12 @@ def update_payment(booking_id: int, data: PaymentUpdate, db: Session = Depends(g
         payment.payment_status = data.payment_status
         payment.payment_method = data.payment_method
         payment.transaction_id = data.transaction_id
+        if data.amount is not None:
+            payment.amount = data.amount
         if data.payment_status == "Completed":
             payment.paid_at = datetime.utcnow()
     else:
-        amount = (booking.quantity or 0) * 50
+        amount = data.amount if data.amount is not None else (booking.quantity or 0) * 50
         payment = Payment(
             booking_id=booking_id, user_id=booking.user_id, amount=amount,
             payment_method=data.payment_method, transaction_id=data.transaction_id,
@@ -623,6 +633,24 @@ def get_price_history(crop_name: str, db: Session = Depends(get_db)):
     prices = db.query(PriceHistory).filter_by(crop_id=crop.id).order_by(PriceHistory.recorded_at.desc()).all()
     return prices
 
+@app.get("/crop-prices-summary")
+def get_crop_prices_summary(db: Session = Depends(get_db)):
+    crops = db.query(Crop).filter(Crop.is_active == True).all()
+    results = []
+    for crop in crops:
+        latest_price = db.query(PriceHistory).filter_by(crop_id=crop.id).order_by(PriceHistory.recorded_at.desc()).first()
+        if latest_price:
+            results.append({
+                "crop": crop.name_en,
+                "crop_hi": crop.name_hi,
+                "price": float(latest_price.price),
+                "unit": latest_price.unit or "₹/quintal",
+                "market": latest_price.market or "Local Market",
+                "date": latest_price.recorded_at.strftime("%Y-%m-%d"),
+                "trend": "Stable",
+                "demand": "High"
+            })
+    return results
 
 # =========================================================
 # WEATHER + CROP ADVISOR (rule-based, real API)
@@ -737,11 +765,13 @@ def admin_list_bookings(db: Session = Depends(get_db), admin=Depends(require_ope
         user = db.query(User).get(b.user_id)
         slot = db.query(Slot).get(b.slot_id)
         centre = db.query(Centre).get(slot.centre_id) if slot else None
+        payment = db.query(Payment).filter_by(booking_id=b.id).first()
         result.append({
             "booking_id": b.id, "farmer_name": user.name if user else None,
             "farmer_phone": user.phone if user else None, "centre_name": centre.name if centre else None,
-            "date": slot.date if slot else None, "crop_type": b.crop_type, "quantity": b.quantity, "unit": b.unit,
-            "status": b.status, "payment_status": b.payment_status
+            "date": slot.date if slot else None, "time_window": slot.time_window if slot else None, "crop_type": b.crop_type, "quantity": b.quantity, "unit": b.unit,
+            "status": b.status, "payment_status": b.payment_status,
+            "amount": float(payment.amount) if payment else None
         })
     return result
 
