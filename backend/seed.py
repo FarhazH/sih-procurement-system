@@ -551,19 +551,27 @@ try:
     # 15. INSERT SLOTS
     # =========================================================
 
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    tomorrow_str = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+    day3_str = (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%d")
+    day4_str = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d")
+
     slot_data = [
+        (today_str, "09:00 AM", 15, 5),
+        (today_str, "11:00 AM", 15, 5),
+        (today_str, "02:00 PM", 10, 5),
 
-        ("2026-09-10", "09:00 AM - 11:00 AM", 8, 2),
-        ("2026-09-10", "11:30 AM - 01:30 PM", 8, 2),
+        (tomorrow_str, "09:00 AM", 20, 5),
+        (tomorrow_str, "11:00 AM", 20, 5),
+        (tomorrow_str, "02:00 PM", 15, 5),
 
-        ("2026-09-11", "09:00 AM - 11:00 AM", 10, 3),
-        ("2026-09-11", "11:30 AM - 01:30 PM", 10, 3),
+        (day3_str, "09:00 AM", 15, 5),
+        (day3_str, "11:00 AM", 15, 5),
+        (day3_str, "02:00 PM", 10, 5),
 
-        ("2026-09-12", "09:00 AM - 11:00 AM", 8, 2),
-        ("2026-09-12", "11:30 AM - 01:30 PM", 8, 2),
-
-        ("2026-09-13", "09:00 AM - 11:00 AM", 6, 2),
-        ("2026-09-13", "11:30 AM - 01:30 PM", 6, 2)
+        (day4_str, "09:00 AM", 15, 5),
+        (day4_str, "11:00 AM", 15, 5),
+        (day4_str, "02:00 PM", 10, 5)
     ]
 
 

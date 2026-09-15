@@ -229,7 +229,8 @@ def auth_me(current_user: User = Depends(get_current_user)):
         "role": current_user.role,
         "village": current_user.village,
         "district": current_user.district,
-        "state": current_user.state
+        "state": current_user.state,
+        "farmer_registration_id": current_user.farmer_registration_id if current_user.role == "farmer" else None
     }
 
 @app.get("/profile/{user_id}")
@@ -787,7 +788,7 @@ def recommend_centre(user_id: int, db: Session = Depends(get_db)):
 @app.get("/admin/farmers")
 def admin_list_farmers(db: Session = Depends(get_db), admin=Depends(require_operator_or_admin)):
     farmers = db.query(User).filter(User.role == "farmer").all()
-    return [{"id": f.id, "name": f.name, "phone": f.phone, "village": f.village,
+    return [{"id": f.id, "farmer_registration_id": f.farmer_registration_id, "name": f.name, "phone": f.phone, "village": f.village,
              "district": f.district, "state": f.state, "missed_count": f.missed_count} for f in farmers]
 
 @app.get("/admin/bookings")

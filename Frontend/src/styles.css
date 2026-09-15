@@ -382,3 +382,4 @@
     padding-bottom:25px !important;
   }
 }
+.stat > div:not(.stat-icon) { min-width: 0; overflow: hidden; }
