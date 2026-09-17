@@ -201,3 +201,13 @@ def send_payment_email(*, email, farmer_name, booking_id, token, centre_name,
         "एग्रो विज़न – स्मार्ट प्रोक्योरमेंट"
     )
     return _send_email(email, subject, body)
+
+def send_otp_email(*, email, farmer_name, otp):
+    subject = "Agro Vision - Your OTP for Password Reset"
+    body = (
+        f"Dear {farmer_name},\n\n"
+        f"Your One Time Password (OTP) to reset your password is: {otp}\n\n"
+        "Please do not share this OTP with anyone.\n\n"
+        "Agro Vision - Smart Procurement\n"
+    )
+    return _send_email(email, subject, body)

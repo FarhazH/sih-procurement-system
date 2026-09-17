@@ -663,7 +663,7 @@ function App(){
       if (loginRole && me.role !== loginRole) throw new Error(language==="hi"?"इस खाते की भूमिका चयन से मेल नहीं खाती।":"This account does not match the selected role.");
       setRole(me.role);
       setCurrentFarmerId(me.user_id);
-      setFarmers(prev => [{id:me.user_id, displayId: me.farmer_registration_id || me.user_id, name:me.name,mobile:me.phone,village:me.village,district:me.district,state:me.state,crop:me.crop_type||me.crop||"",quantity:me.crop_quantity||me.quantity||"",status:"Active"}, ...prev.filter(f=>f.id!==me.user_id)]);
+      setFarmers(prev => [{id:me.user_id, displayId: me.farmer_registration_id || me.user_id, name:me.name,email:me.email,mobile:me.phone,village:me.village,district:me.district,state:me.state,crop:me.crop_type||me.crop||"",quantity:me.crop_quantity||me.quantity||"",status:"Active"}, ...prev.filter(f=>f.id!==me.user_id)]);
       setLoggedIn(true);
       await loadAuthenticatedData(me);
     } catch (error) {
@@ -674,7 +674,7 @@ function App(){
   useEffect(()=>{
     if(!authToken) return;
     (async()=>{
-      try { const me=await apiRequest("/auth/me"); setRole(me.role); setCurrentFarmerId(me.user_id); setFarmers(prev=>[{id:me.user_id, displayId: me.farmer_registration_id || me.user_id, name:me.name,mobile:me.phone,village:me.village,district:me.district,state:me.state,crop:me.crop_type||me.crop||"",quantity:me.crop_quantity||me.quantity||"",status:"Active"},...prev.filter(f=>f.id!==me.user_id)]); await loadAuthenticatedData(me); setLoggedIn(true); }
+      try { const me=await apiRequest("/auth/me"); setRole(me.role); setCurrentFarmerId(me.user_id); setFarmers(prev=>[{id:me.user_id, displayId: me.farmer_registration_id || me.user_id, name:me.name,email:me.email,mobile:me.phone,village:me.village,district:me.district,state:me.state,crop:me.crop_type||me.crop||"",quantity:me.crop_quantity||me.quantity||"",status:"Active"},...prev.filter(f=>f.id!==me.user_id)]); await loadAuthenticatedData(me); setLoggedIn(true); }
       catch { localStorage.removeItem("agroVisionAccessToken"); setAuthToken(""); }
     })();
   },[authToken]);
@@ -711,17 +711,17 @@ function App(){
         <div className="role-switch"><span className="role-badge">{role==="farmer"?"👨‍🌾":"👨‍💼"} {role==="farmer"?(language==="hi"?"किसान पोर्टल":"Farmer Portal"):(language==="hi"?"एडमिन पोर्टल":"Admin Portal")}</span><button onClick={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);setRole("farmer");}}>↪ {t("logout")}</button></div>
       </div>
     </header>
-    {role==="farmer"?<FarmerApp farmers={farmers} centres={centres} slots={slots} tokens={tokens} waitingList={waitingList} currentFarmerId={currentFarmerId} onBookRequest={addBookingRequest} onCancelToken={cancelToken} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} language={language} notifications={notifications} markNotificationRead={markNotificationRead} onCallAdmin={()=>{}} payments={payments}/>:role==="operator"?<OperatorApp tokens={tokens} farmers={farmers} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} onUpdateBooking={updateBooking}/>:<AdminApp farmers={farmers} centres={centres} tokens={tokens} slots={slots} setSlots={setSlots} waitingList={waitingList} setCentres={setCentres} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} notifications={notifications} addSalePaymentNotification={addSalePaymentNotification} onUpdateBooking={updateBooking}/>} 
+    {role==="farmer"?<FarmerApp farmers={farmers} setFarmers={setFarmers} centres={centres} slots={slots} tokens={tokens} waitingList={waitingList} currentFarmerId={currentFarmerId} onBookRequest={addBookingRequest} onCancelToken={cancelToken} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} language={language} notifications={notifications} markNotificationRead={markNotificationRead} onCallAdmin={()=>{}} payments={payments}/>:role==="operator"?<OperatorApp tokens={tokens} farmers={farmers} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} onUpdateBooking={updateBooking}/>:<AdminApp farmers={farmers} centres={centres} tokens={tokens} slots={slots} setSlots={setSlots} waitingList={waitingList} setCentres={setCentres} onLogout={()=>{localStorage.removeItem("agroVisionAccessToken");setAuthToken("");setLoggedIn(false);}} t={t} notifications={notifications} addSalePaymentNotification={addSalePaymentNotification} onUpdateBooking={updateBooking}/>} 
   </div>;
 }
 
-function FarmerApp({farmers,centres,slots,tokens,waitingList,currentFarmerId,onBookRequest,onCancelToken,onLogout,t,language,notifications,markNotificationRead,payments=[]}){
+function FarmerApp({farmers,setFarmers,centres,slots,tokens,waitingList,currentFarmerId,onBookRequest,onCancelToken,onLogout,t,language,notifications,markNotificationRead,payments=[]}){
   const [page,setPage]=useState("dashboard"); const [selectedToken,setSelectedToken]=useState(null);
   const currentFarmer=farmers.find(f=>f.id===currentFarmerId)||farmers[0];
   return <div className="layout">
     <Sidebar title={t("farmerPortal")} items={[["dashboard",t("dashboard"),"🏠"],["gps",t("gps"),"📍"],["profile",t("profile"),"👨‍🌾"],["produce",t("produce"),"🌾"],["book",t("bookToken"),"🎫"],["queue",t("queue"),"🔎"],["payment",t("payment"),"💰"],["cancel",t("cancelBooking"),"✕"],["analysis",t("analysis"),"📈"],["reports",t("reports"),"📄"],["notifications",t("notifications"),"🔔"],["feedback",t("feedback"),"⭐"],["prices",t("cropPrices"),"📈"]]} page={page} setPage={setPage} onLogout={onLogout} t={t} />
     <main className="content">
-      {page==="gps"&&<FarmerGPS centres={centres} t={t} language={language}/>} {page==="dashboard"&&<FarmerDashboard farmer={currentFarmer} tokens={tokens} setPage={setPage} t={t}/>} {page==="profile"&&<Profile farmer={currentFarmer} t={t}/>} {page==="produce"&&<Produce farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} t={t}/>} {page==="book"&&<BookToken centres={centres} slots={slots} tokens={tokens} onBook={async data=>{const result=await onBookRequest({...data,farmer:currentFarmer.name,farmerId:currentFarmer.id});if(result?.type==="booked"||result?.type==="waiting"){setSelectedToken(result.record);setPage("queue");}else alert(t("bookingFailed"));}} t={t}/>} {page==="queue"&&<Queue tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} selected={selectedToken} onCancel={onCancelToken} t={t}/>} {page==="cancel"&&<CancelBooking tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} onCancel={onCancelToken} setPage={setPage} t={t}/>} {page==="payment"&&<Payment t={t} payments={payments}/>} {page==="analysis"&&<FarmerAnalysis farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} payments={payments} t={t}/>} {page==="reports"&&<FarmerReports farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} payments={payments} t={t}/>} {page==="notifications"&&<Notifications t={t} notifications={notifications} markNotificationRead={markNotificationRead} farmerId={currentFarmer.id}/>} {page==="feedback"&&<FarmerFeedback farmer={currentFarmer} t={t}/>} {page==="prices"&&<CropPrices t={t} farmer={currentFarmer}/>} 
+      {page==="gps"&&<FarmerGPS centres={centres} t={t} language={language}/>} {page==="dashboard"&&<FarmerDashboard farmer={currentFarmer} tokens={tokens} setPage={setPage} t={t}/>} {page==="profile"&&<Profile farmer={currentFarmer} setFarmers={setFarmers} t={t}/>} {page==="produce"&&<Produce farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} t={t}/>} {page==="book"&&<BookToken centres={centres} slots={slots} tokens={tokens} onBook={async data=>{const result=await onBookRequest({...data,farmer:currentFarmer.name,farmerId:currentFarmer.id});if(result?.type==="booked"||result?.type==="waiting"){setSelectedToken(result.record);setPage("queue");}else alert(t("bookingFailed"));}} t={t}/>} {page==="queue"&&<Queue tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} selected={selectedToken} onCancel={onCancelToken} t={t}/>} {page==="cancel"&&<CancelBooking tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} onCancel={onCancelToken} setPage={setPage} t={t}/>} {page==="payment"&&<Payment t={t} payments={payments}/>} {page==="analysis"&&<FarmerAnalysis farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} payments={payments} t={t}/>} {page==="reports"&&<FarmerReports farmer={currentFarmer} tokens={tokens.filter(x=>x.farmerId===currentFarmer.id)} payments={payments} t={t}/>} {page==="notifications"&&<Notifications t={t} notifications={notifications} markNotificationRead={markNotificationRead} farmerId={currentFarmer.id}/>} {page==="feedback"&&<FarmerFeedback farmer={currentFarmer} t={t}/>} {page==="prices"&&<CropPrices t={t} farmer={currentFarmer}/>} 
     </main>
   </div>;
 }
@@ -732,6 +732,35 @@ function Login({role,setRole,language,setLanguage,onLogin,onRegister,t}){
   const [showPassword,setShowPassword]=React.useState(false);
   const [listening,setListening]=React.useState(false);
   const [voiceMessage,setVoiceMessage]=React.useState("");
+  const [forgotMode, setForgotMode] = React.useState(false);
+  const [forgotEmail, setForgotEmail] = React.useState("");
+  const [forgotOtp, setForgotOtp] = React.useState("");
+  const [forgotNewPassword, setForgotNewPassword] = React.useState("");
+  const [forgotOtpSent, setForgotOtpSent] = React.useState(false);
+
+  const handleForgotRequest = async (e) => {
+    e.preventDefault();
+    if(!forgotEmail) return alert("Please enter your registered email");
+    try {
+      const res = await apiRequest("/forgot-password-request", { method: "POST", body: JSON.stringify({email: forgotEmail}) });
+      alert(res.message);
+      setForgotOtpSent(true);
+    } catch(err) { alert(err.message); }
+  };
+
+  const handleForgotReset = async (e) => {
+    e.preventDefault();
+    if(!forgotOtp || !forgotNewPassword) return alert("Please fill all fields");
+    try {
+      const res = await apiRequest("/forgot-password-reset", { method: "POST", body: JSON.stringify({email: forgotEmail, otp: forgotOtp, new_password: forgotNewPassword}) });
+      alert(res.message);
+      setForgotMode(false);
+      setForgotOtpSent(false);
+      setForgotEmail("");
+      setForgotOtp("");
+      setForgotNewPassword("");
+    } catch(err) { alert(err.message); }
+  };
   const [lastFocusedField,setLastFocusedField]=React.useState("mobile");
   const mobileRef=React.useRef(null);
   const passwordRef=React.useRef(null);
@@ -745,43 +774,32 @@ function Login({role,setRole,language,setLanguage,onLogin,onRegister,t}){
 
   React.useEffect(()=>{
     const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!SpeechRecognition){
-      setVoiceMessage(t("voiceNotSupported"));
-      return;
-    }
-
+    if(!SpeechRecognition){setVoiceMessage(t("voiceNotSupported"));return;}
     const recognition=new SpeechRecognition();
     recognition.continuous=false;
     recognition.interimResults=false;
     recognition.maxAlternatives=3;
     recognition.lang=language==="hi"?"hi-IN":"en-IN";
-
-    const numberWords={
-      zero:"0",one:"1",two:"2",three:"3",four:"4",five:"5",six:"6",seven:"7",eight:"8",nine:"9",
-      शून्य:"0",एक:"1",दो:"2",तीन:"3",चार:"4",पांच:"5",पाँच:"5",छह:"6",छः:"6",सात:"7",आठ:"8",नौ:"9"
-    };
-    const normalizeDigits=(text)=>{
-      let value=text.toLowerCase();
-      Object.entries(numberWords).forEach(([word,digit])=>{value=value.replace(new RegExp(`\\b${word}\\b`,'gi'),digit);});
-      return value.replace(/\D/g,"").slice(0,10);
-    };
+    const numberWords={zero:"0",one:"1",two:"2",three:"3",four:"4",five:"5",six:"6",seven:"7",eight:"8",nine:"9","शून्य":"0","एक":"1","दो":"2","तीन":"3","चार":"4","पांच":"5","पाँच":"5","छह":"6","छः":"6","सात":"7","आठ":"8","नौ":"9"};
+    const normalizeDigits=(text)=>{let value=text.toLowerCase();Object.entries(numberWords).forEach(([word,digit])=>{value=value.replace(new RegExp(`\\b${word}\\b`,"gi"),digit);});return value.replace(/\\D/g,"").slice(0,10);};
 
     recognition.onstart=()=>{setListening(true);setVoiceMessage(t("listening"));};
     recognition.onspeechend=()=>{try{recognition.stop();}catch{}};
     recognition.onresult=e=>{
       const finalResults=Array.from(e.results).filter(r=>r.isFinal);
-      const spoken=(finalResults.length?finalResults[finalResults.length-1][0]:e.results[e.results.length-1][0])?.transcript?.trim()||"";
+      let spoken=(finalResults.length?finalResults[finalResults.length-1][0]:e.results[e.results.length-1][0])?.transcript?.trim()||"";
+      spoken = spoken.replace(/[\\.\\?।]|\\|/g, "").trim();
       if(!spoken)return;
       const lower=spoken.toLowerCase();
       const hindi=language==="hi";
-
-      if(/\b(hindi|हिन्दी)\b/i.test(lower)){setLanguage("hi");setVoiceMessage("हिन्दी");return;}
-      if(/\b(english|अंग्रेज़ी|अंग्रेजी)\b/i.test(lower)){setLanguage("en");setVoiceMessage("English");return;}
+      
+      if(/\b(hindi|हिन्दी|हिंदी)\b/i.test(lower)){setLanguage("hi");setVoiceMessage("हिन्दी");return;}
+      if(/\b(english|angrezi|इंग्लिश|अंग्रेजी|अंग्रेज़ी)\b/i.test(lower)){setLanguage("en");setVoiceMessage("English");return;}
       if(/\b(farmer|किसान)\b/i.test(lower)){setRole("farmer");setVoiceMessage(hindi?"किसान चुना गया":"Farmer selected");return;}
       if(/\b(admin|administrator|एडमिन)\b/i.test(lower)){setRole("admin");setVoiceMessage(hindi?"एडमिन चुना गया":"Admin selected");return;}
       if(/\b(operator|ऑपरेटर)\b/i.test(lower)){setRole("operator");setVoiceMessage(hindi?"ऑपरेटर चुना गया":"Operator selected");return;}
       if(/\b(login|log in|लॉगिन|लॉग इन)\b/i.test(lower)){
-        setVoiceMessage(hindi?"लॉगिन कर रहे हैं":"Logging in");
+        setVoiceMessage(hindi?"लॉगिन कर रहे हैं...":"Logging in");
         setTimeout(()=>document.getElementById("agro-login-form")?.requestSubmit(),180);
         return;
       }
@@ -789,11 +807,10 @@ function Login({role,setRole,language,setLanguage,onLogin,onRegister,t}){
       if(lastFocusedField==="mobile"){
         const digits=normalizeDigits(spoken);
         if(digits)setMobile(digits);
-        else setVoiceMessage(hindi?"कृपया मोबाइल नंबर साफ़ बोलें।":"Please speak the mobile number clearly.");
       }else if(lastFocusedField==="password"){
-        setPassword(spoken.replace(/\s/g,""));
-        setVoiceMessage(hindi?"पासवर्ड दर्ज किया गया":"Password entered");
+        setPassword(spoken.replace(/\\s/g,""));
       }
+      setVoiceMessage(hindi?"प्रविष्ट किया गया":"Entered");
     };
     recognition.onerror=e=>{
       if(e.error==="not-allowed") setVoiceMessage(t("voicePermission"));
@@ -802,38 +819,15 @@ function Login({role,setRole,language,setLanguage,onLogin,onRegister,t}){
       else setVoiceMessage(t("voiceMicError"));
       setListening(false);
     };
-    recognition.onend=()=>setListening(false);
     recognitionRef.current=recognition;
-
     return ()=>{try{recognition.abort();}catch{} recognitionRef.current=null;};
-  },[language,t]);
+  },[language, t, lastFocusedField]);
 
   const toggleVoice=async()=>{
     const recognition=recognitionRef.current;
-    if(!recognition){
-      setVoiceMessage(t("voiceNotSupported"));
-      return;
-    }
-    if(listening){
-      try{recognition.stop();}catch{}
-      setListening(false);
-      return;
-    }
-    try{
-      // Explicitly request microphone permission first. This makes permission problems
-      // visible instead of leaving the assistant apparently inactive.
-      if(navigator.mediaDevices?.getUserMedia){
-        const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-        stream.getTracks().forEach(track=>track.stop());
-      }
-      recognition.lang=language==="hi"?"hi-IN":"en-IN";
-      recognition.start();
-    }catch(error){
-      if(error?.name==="NotAllowedError"||error?.name==="SecurityError") setVoiceMessage(t("voicePermission"));
-      else if(error?.name==="NotFoundError") setVoiceMessage(t("voiceMicError"));
-      else setVoiceMessage(t("voiceHelp"));
-      setListening(false);
-    }
+    if(!recognition){setVoiceMessage(t("voiceNotSupported"));return;}
+    if(listening){try{recognition.stop();}catch{} setListening(false);return;}
+    try{if(navigator.mediaDevices?.getUserMedia) await navigator.mediaDevices.getUserMedia({audio:true});recognition.start();}catch(err){setVoiceMessage(t("voicePermission"));}
   };
 
   const speakHelp=()=>{
@@ -883,13 +877,44 @@ function Login({role,setRole,language,setLanguage,onLogin,onRegister,t}){
           <button type="button" className={role==="farmer"?"role-btn active":"role-btn"} onClick={()=>setRole("farmer")}>👨‍🌾 {t("farmer")}</button>
           <button type="button" className={role==="admin"?"role-btn active":"role-btn"} onClick={()=>setRole("admin")}>👨‍💼 {t("admin")}</button>
         </div>
-        <form id="agro-login-form" onSubmit={handleLogin}>
-          <div className="form-group"><label>{t("mobileNumber")}</label><div className="input-wrapper"><span className="input-icon">📱</span><input ref={mobileRef} onFocus={()=>setLastFocusedField("mobile")} type="tel" placeholder={t("enterMobileYour")} value={mobile} onChange={e=>setMobile(e.target.value)} maxLength="10" autoComplete="tel" /></div></div>
+        {!forgotMode ? (<form id="agro-login-form" onSubmit={handleLogin}>
+          <div className="form-group"><label>{t("mobileNumber")}</label><div className="input-wrapper"><span className="input-icon">📱</span><input ref={mobileRef} onFocus={()=>setLastFocusedField("mobile")} type="tel" placeholder={t("enterMobileYour")} value={mobile} onChange={e=>setMobile(e.target.value.replace(/\D/g, ""))} maxLength="10" autoComplete="tel" /></div></div>
           <div className="form-group"><label>{t("password")}</label><div className="input-wrapper"><span className="input-icon">🔒</span><input ref={passwordRef} onFocus={()=>setLastFocusedField("password")} type={showPassword?"text":"password"} placeholder={t("enterPasswordYour")} value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" /><button type="button" className="password-toggle" onClick={()=>setShowPassword(!showPassword)} aria-label={showPassword?"Hide password":"Show password"}>{showPassword?"👁":"🙈"}</button></div></div>
-          <div className="login-options"><label className="remember"><input type="checkbox"/><span>{t("remember")}</span></label><button type="button" className="text-button" onClick={()=>alert(t("passwordRecovery"))}>{t("forgot")}</button></div>
+          <div className="login-options"><label className="remember"><input type="checkbox"/><span>{t("remember")}</span></label><button type="button" className="text-button" onClick={()=>{setForgotMode(true);setForgotOtpSent(false);}}>{t("forgot")}</button></div>
           <button type="submit" className="primary full">{t("login")}</button>
+        </form>) : (
+        <form onSubmit={forgotOtpSent ? handleForgotReset : handleForgotRequest}>
+          <h3 style={{marginBottom: "15px"}}>Reset Password</h3>
+          <div className="form-group">
+            <label>Registered Email</label>
+            <div className="input-wrapper">
+              <span className="input-icon">✉️</span>
+              <input type="email" value={forgotEmail} onChange={e=>setForgotEmail(e.target.value)} required disabled={forgotOtpSent} placeholder="Enter your email" />
+            </div>
+          </div>
+          {forgotOtpSent && <>
+            <div className="form-group">
+              <label>Enter OTP (sent to email)</label>
+              <div className="input-wrapper">
+                <span className="input-icon">🔑</span>
+                <input type="text" value={forgotOtp} onChange={e=>setForgotOtp(e.target.value)} required placeholder="Enter 6-digit OTP" />
+              </div>
+            </div>
+            <div className="form-group">
+              <label>New Password</label>
+              <div className="input-wrapper">
+                <span className="input-icon">🔒</span>
+                <input type="password" value={forgotNewPassword} onChange={e=>setForgotNewPassword(e.target.value)} required placeholder="Enter new password" />
+              </div>
+            </div>
+          </>}
+          <div style={{display: "flex", gap: "10px", marginTop: "20px"}}>
+            <button type="submit" className="primary full">{forgotOtpSent ? "Reset Password" : "Send OTP"}</button>
+            <button type="button" className="secondary full" onClick={()=>setForgotMode(false)}>Cancel</button>
+          </div>
         </form>
-        <div className="register-row"><span>{t("dontHaveAccount")}</span><button type="button" onClick={onRegister}>{t("register")}</button></div>
+)}
+        {!forgotMode && <div className="register-row"><span>{t("dontHaveAccount")}</span><button type="button" onClick={onRegister}>{t("register")}</button></div>}
       </div>
       <LoginDemoVideo t={t} language={language}/>
     </div>
@@ -899,6 +924,7 @@ function Login({role,setRole,language,setLanguage,onLogin,onRegister,t}){
 function Register({language,setLanguage,onBack,onRegistered,t}){
   const [form,setForm]=useState({name:"",email:"",mobile:"",password:"",village:"",district:""});
   const [error,setError]=useState("");
+  const [showPassword,setShowPassword]=useState(false);
   const [submitting,setSubmitting]=useState(false);
 
   const [listening,setListening]=useState(false);
@@ -918,15 +944,20 @@ function Register({language,setLanguage,onBack,onRegistered,t}){
     recognition.maxAlternatives=3;
     recognition.lang=language==="hi"?"hi-IN":"en-IN";
     const numberWords={zero:"0",one:"1",two:"2",three:"3",four:"4",five:"5",six:"6",seven:"7",eight:"8",nine:"9","शून्य":"0","एक":"1","दो":"2","तीन":"3","चार":"4","पांच":"5","पाँच":"5","छह":"6","छः":"6","सात":"7","आठ":"8","नौ":"9"};
-    const normalizeDigits=(text)=>{let value=text.toLowerCase();Object.entries(numberWords).forEach(([word,digit])=>{value=value.replace(new RegExp(`\\b${word}\\b`,'gi'),digit);});return value.replace(/\D/g,"").slice(0,10);};
+    const normalizeDigits=(text)=>{let value=text.toLowerCase();Object.entries(numberWords).forEach(([word,digit])=>{value=value.replace(new RegExp(`\\b${word}\\b`,"gi"),digit);});return value.replace(/\\D/g,"").slice(0,10);};
 
     recognition.onstart=()=>{setListening(true);setVoiceMessage(t("listening"));};
     recognition.onspeechend=()=>{try{recognition.stop();}catch{}};
     recognition.onresult=e=>{
       const finalResults=Array.from(e.results).filter(r=>r.isFinal);
-      const spoken=(finalResults.length?finalResults[finalResults.length-1][0]:e.results[e.results.length-1][0])?.transcript?.trim()||"";
+      let spoken=(finalResults.length?finalResults[finalResults.length-1][0]:e.results[e.results.length-1][0])?.transcript?.trim()||"";
+      spoken = spoken.replace(/[\.\?।]|\|/g, "").trim();
       if(!spoken)return;
       
+      const lower=spoken.toLowerCase();
+      const hindi=language==="hi";
+      if(/\b(hindi|हिन्दी|हिंदी)\b/i.test(lower)){setLanguage("hi");setVoiceMessage("हिन्दी");return;}
+      if(/\b(english|angrezi|इंग्लिश|अंग्रेजी|अंग्रेज़ी)\b/i.test(lower)){setLanguage("en");setVoiceMessage("English");return;}
       if(lastFocusedField==="name") setForm(prev=>({...prev,name:spoken}));
       else if(lastFocusedField==="email") setForm(prev=>({...prev,email:spoken.replace(/\s/g,"").toLowerCase()}));
       else if(lastFocusedField==="village") setForm(prev=>({...prev,village:spoken}));
@@ -1014,8 +1045,8 @@ function Register({language,setLanguage,onBack,onRegistered,t}){
         <form onSubmit={submitRegistration}>
           <div className="form-group"><label>{t("name")}</label><input value={form.name} onChange={update("name")} onFocus={()=>setLastFocusedField("name")} placeholder={t("name")}/></div>
           <div className="form-group"><label>Email <small className="muted" style={{marginLeft:"8px"}}>(Enter to receive mail updates)</small></label><input type="email" value={form.email} onChange={update("email")} onFocus={()=>setLastFocusedField("email")} placeholder="Email Address"/></div>
-          <div className="form-group"><label>{t("mobileNumber")}</label><input type="tel" maxLength="10" value={form.mobile} onChange={update("mobile")} onFocus={()=>setLastFocusedField("mobile")} placeholder={t("enterMobileYour")}/></div>
-          <div className="form-group"><label>{t("password")}</label><input type="password" value={form.password} onChange={update("password")} onFocus={()=>setLastFocusedField("password")} placeholder={t("enterPasswordYour")}/></div>
+          <div className="form-group"><label>{t("mobileNumber")}</label><input type="tel" maxLength="10" value={form.mobile} onChange={e=>setForm(prev=>({...prev,mobile:e.target.value.replace(/\D/g, "")}))} onFocus={()=>setLastFocusedField("mobile")} placeholder={t("enterMobileYour")}/></div>
+          <div className="form-group"><label>{t("password")}</label><div className="input-wrapper"><span className="input-icon">🔒</span><input type={showPassword?"text":"password"} value={form.password} onChange={update("password")} onFocus={()=>setLastFocusedField("password")} placeholder={t("enterPasswordYour")}/><button type="button" className="password-toggle" onClick={()=>setShowPassword(!showPassword)} aria-label={showPassword?"Hide password":"Show password"}>{showPassword?"👁":"🙈"}</button></div></div>
           <div className="form-group"><label>{t("village")}</label><input value={form.village} onChange={update("village")} onFocus={()=>setLastFocusedField("village")} placeholder={t("village")}/></div>
           <div className="form-group"><label>{t("district")}</label><input value={form.district} onChange={update("district")} onFocus={()=>setLastFocusedField("district")} placeholder={t("district")}/></div>
           {error&&<div className="gps-error">⚠️ {error}</div>}
@@ -1231,7 +1262,83 @@ function Sidebar({title,items,page,setPage,onLogout,t}){
 
 function FarmerDashboard({farmer,tokens,setPage,t}){const token=tokens.find(x=>x.farmerId===farmer.id&&x.status!=="Cancelled");const statusStepMap={Confirmed:1,Received:2,Verified:3,Accepted:3,Processed:4};const doneSteps=token?(statusStepMap[token.status]||0):0;const paymentDone=token?.payment_status==="Completed";return <section><PageHead title={`${t("welcomeComma")} ${farmer.name} 👋`} text={t("manageActivities")} /><div className="stats"><Stat icon="🎫" label={t("activeToken")} value={token?.token||"—"}/><Stat icon="📍" label={t("procurementCentre")} value={token?.centre?.split(" Procurement")[0]||t("notSelected")}/><Stat icon="🔢" label={t("queuePosition")} value={token?.queue||"—"}/><Stat icon="💰" label={t("payment")} value={paymentDone?t("processed"):t("pending")}/></div><div className="grid2"><Card title={t("currentStatus")}><div className="timeline">{[["tokenBooked","Token Booked"],["produceReached","Produce Reached Centre"],["qualityVerification","Quality Verification"],["procurementCompleted","Procurement Completed"],["paymentProcessed","Payment Processed"]].map(([key,fallback],i)=>{const isDone=(i<4&&i<doneSteps)||(i===4&&paymentDone);return <div className={"step "+(isDone?"done":"")} key={key}><span>{isDone?"✓":i+1}</span><div><b>{t(key)}</b><small>{isDone?t("completed"):t("pending")}</small></div></div>})}</div></Card><Card title={t("quickActions")}><button className="action" onClick={()=>setPage("book")}>🎫 {t("bookNewToken")} <span>→</span></button><button className="action" onClick={()=>setPage("queue")}>🔎 {t("viewQueue")} <span>→</span></button><button className="action" onClick={()=>setPage("notifications")}>🔔 {t("notifications")} <span>→</span></button><button className="action" onClick={()=>setPage("gps")}>📍 {t("gps")} <span>→</span></button><CallAdminButton t={t} phoneNumber={ADMIN_PHONE_NUMBER}/><button className="action" onClick={()=>setPage("analysis")}>📈 {t("analysis")} <span>→</span></button><button className="action" onClick={()=>setPage("reports")}>📄 {t("reports")} <span>→</span></button><button className="action" onClick={()=>setPage("cancel")}>✕ {t("cancelBooking")} <span>→</span></button></Card></div></section>}
 
-function Profile({farmer,t}){return <section><PageHead title={t("profile")} text={t("registeredFarmerInfo")}/><Card><InfoGrid data={{[t("farmerId")]:farmer.displayId||farmer.id,[t("name")]:farmer.name,[t("mobileNumber")]:farmer.mobile,[t("village")]:farmer.village,[t("district")]:farmer.district,[t("accountStatus")]:farmer.status}}/></Card></section>}
+function Profile({farmer,setFarmers,t}){
+  const [editMode, setEditMode] = useState(false);
+  const [passMode, setPassMode] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [form, setForm] = useState({ name: farmer?.name || "", email: farmer?.email || "", password: "" });
+  const [passForm, setPassForm] = useState({ otp: "", newPassword: "" });
+
+  if (!farmer) return <div>Loading...</div>;
+
+  const updateProfile = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await apiRequest("/update-profile", { method: "PUT", body: JSON.stringify(form) });
+      alert(res.message);
+      setFarmers(prev => prev.map(f => f.id === farmer.id ? { ...f, name: res.name, email: res.email } : f));
+      setEditMode(false);
+    } catch(err) { alert(err.message); }
+  };
+
+  const requestOtp = async () => {
+    try {
+      const res = await apiRequest("/request-otp", { method: "POST" });
+      alert(res.message);
+      setOtpSent(true);
+    } catch(err) { alert(err.message); }
+  };
+
+  const changePassword = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await apiRequest("/change-password", { method: "PUT", body: JSON.stringify({ otp: passForm.otp, new_password: passForm.newPassword }) });
+      alert(res.message);
+      setPassMode(false);
+      setOtpSent(false);
+      setPassForm({otp: "", newPassword: ""});
+    } catch(err) { alert(err.message); }
+  };
+
+  return <section><PageHead title={t("profile")} text={t("registeredFarmerInfo")}/><Card>
+    {!editMode && !passMode && <>
+      <InfoGrid data={{[t("farmerId")]:farmer.displayId||farmer.id,[t("name")]:farmer.name,"Email":farmer.email||"Not set",[t("mobileNumber")]:farmer.mobile,[t("village")]:farmer.village,[t("district")]:farmer.district,[t("accountStatus")]:farmer.status}}/>
+      <div style={{marginTop: "20px", display: "flex", gap: "10px"}}>
+        <button className="primary" onClick={() => {setForm({name: farmer.name, email: farmer.email || "", password: ""}); setEditMode(true);}}>Edit Profile</button>
+        <button className="secondary" onClick={() => setPassMode(true)}>Change Password</button>
+      </div>
+    </>}
+    
+    {editMode && <form onSubmit={updateProfile}>
+      <h3>Edit Profile</h3>
+      <div className="form-group"><label>{t("name")}</label><input value={form.name} onChange={e=>setForm({...form, name: e.target.value})} required/></div>
+      <div className="form-group"><label>Email</label><input type="email" value={form.email} onChange={e=>setForm({...form, email: e.target.value})} required/></div>
+      {form.email !== farmer.email && <div className="form-group"><label>Current Password (required for email change)</label><input type="password" value={form.password} onChange={e=>setForm({...form, password: e.target.value})} required/></div>}
+      <div style={{marginTop: "20px", display: "flex", gap: "10px"}}>
+        <button type="submit" className="primary">Save Changes</button>
+        <button type="button" className="secondary" onClick={() => setEditMode(false)}>Cancel</button>
+      </div>
+    </form>}
+
+    {passMode && <div>
+      <h3>Change Password</h3>
+      {!otpSent ? <div>
+        <p>We will send an OTP to your registered email address ({farmer.email || "Not set"}).</p>
+        <div style={{marginTop: "20px", display: "flex", gap: "10px"}}>
+          <button className="primary" onClick={requestOtp}>Send OTP</button>
+          <button className="secondary" onClick={() => setPassMode(false)}>Cancel</button>
+        </div>
+      </div> : <form onSubmit={changePassword}>
+        <div className="form-group"><label>Enter OTP (check backend console)</label><input value={passForm.otp} onChange={e=>setPassForm({...passForm, otp: e.target.value})} required /></div>
+        <div className="form-group"><label>New Password</label><input type="password" value={passForm.newPassword} onChange={e=>setPassForm({...passForm, newPassword: e.target.value})} required /></div>
+        <div style={{marginTop: "20px", display: "flex", gap: "10px"}}>
+          <button type="submit" className="primary">Update Password</button>
+          <button type="button" className="secondary" onClick={() => {setPassMode(false); setOtpSent(false);}}>Cancel</button>
+        </div>
+      </form>}
+    </div>}
+  </Card></section>
+}
 
 function Produce({farmer,tokens=[],t}){return <section><PageHead title={t("produceDetails")} text={t("produceSubmitted")}/><Card><table><thead><tr><th>{t("crop")}</th><th>{t("quantity")}</th><th>{t("centre")}</th><th>{t("verification")}</th></tr></thead><tbody>{tokens.length?tokens.map(x=><tr key={x.token}><td>{x.crop||"-"}</td><td>{x.quantity||"-"}</td><td>{x.centre||"-"}</td><td><span className={"badge "+(x.status==="Processed"?"green":"yellow")}>{x.status||t("pending")}</span></td></tr>):<tr><td colSpan="4">{t("noToken")}</td></tr>}</tbody></table></Card></section>}
 

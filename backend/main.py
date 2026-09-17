@@ -18,6 +18,7 @@ from models import (
 from auth import hash_password, verify_password, create_access_token, decode_access_token
 from recommendation_logic import recommend_best_center
 from email_service import (
+    send_otp_email,
     send_booking_email, send_waitlist_email, send_status_email,
     send_procurement_email, send_payment_email
 )
@@ -220,6 +221,101 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     token = create_access_token({"user_id": user.id, "role": user.role})
     return {"message": "Login successful", "access_token": token, "user_id": user.id, "role": user.role}
 
+OTP_STORE = {}
+import random
+
+@app.put("/update-profile")
+def update_profile(data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if data.get("email") and data.get("email") != current_user.email:
+        if not verify_password(data.get("password", ""), current_user.password_hash):
+            raise HTTPException(status_code=400, detail="Incorrect password for email change")
+        current_user.email = data.get("email")
+    if data.get("name"):
+        current_user.name = data.get("name")
+    db.commit()
+    return {"message": "Profile updated", "name": current_user.name, "email": current_user.email}
+
+@app.post("/request-otp")
+def request_otp(current_user: User = Depends(get_current_user)):
+    if not current_user.email:
+        raise HTTPException(status_code=400, detail="No email associated with this account. Please update your email first.")
+    
+    otp = str(random.randint(100000, 999999))
+    OTP_STORE[current_user.id] = otp
+    print(f"\n[OTP GENERATED] OTP for {current_user.email} is: {otp}\n")
+    
+    # Send email
+    try:
+        from email_service import send_otp_email
+        send_otp_email(email=current_user.email, farmer_name=current_user.name, otp=otp)
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        
+    return {"message": "OTP sent to email (and backend console)"}
+
+@app.put("/change-password")
+def change_password(data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    otp = data.get("otp")
+    new_password = data.get("new_password")
+    if not otp or not new_password:
+        raise HTTPException(status_code=400, detail="Missing OTP or new password")
+    
+    if OTP_STORE.get(current_user.id) != str(otp):
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+        
+    current_user.password_hash = hash_password(new_password)
+    del OTP_STORE[current_user.id]
+    db.commit()
+    return {"message": "Password changed successfully"}
+
+
+
+@app.post("/forgot-password-request")
+def forgot_password_request(data: dict, db: Session = Depends(get_db)):
+    email = data.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+        
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        # We return a generic message to prevent email enumeration, but for this project 
+        # it might be better to say "No user found" so the user knows.
+        raise HTTPException(status_code=404, detail="No account associated with this email")
+        
+    otp = str(random.randint(100000, 999999))
+    OTP_STORE[user.id] = otp
+    print(f"\n[OTP GENERATED - FORGOT PASSWORD] OTP for {user.email} is: {otp}\n")
+    
+    try:
+        from email_service import send_otp_email
+        send_otp_email(email=user.email, farmer_name=user.name, otp=otp)
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        
+    return {"message": "OTP sent to your email address"}
+
+@app.post("/forgot-password-reset")
+def forgot_password_reset(data: dict, db: Session = Depends(get_db)):
+    email = data.get("email")
+    otp = data.get("otp")
+    new_password = data.get("new_password")
+    
+    if not email or not otp or not new_password:
+        raise HTTPException(status_code=400, detail="Email, OTP, and new password are required")
+        
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    if OTP_STORE.get(user.id) != str(otp):
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+        
+    user.password_hash = hash_password(new_password)
+    del OTP_STORE[user.id]
+    db.commit()
+    
+    return {"message": "Password successfully reset"}
+
 @app.get("/auth/me")
 def auth_me(current_user: User = Depends(get_current_user)):
     return {
@@ -230,6 +326,7 @@ def auth_me(current_user: User = Depends(get_current_user)):
         "village": current_user.village,
         "district": current_user.district,
         "state": current_user.state,
+        "email": current_user.email,
         "farmer_registration_id": current_user.farmer_registration_id if current_user.role == "farmer" else None
     }
 
@@ -241,7 +338,7 @@ def get_profile(user_id: int, db: Session = Depends(get_db)):
     return {
         "id": user.id, "name": user.name, "phone": user.phone, "role": user.role,
         "village": user.village, "district": user.district, "state": user.state,
-        "address": user.address, "farmer_registration_id": user.farmer_registration_id,
+        "address": user.address, "email": user.email, "farmer_registration_id": user.farmer_registration_id,
         "preferred_language": user.preferred_language, "missed_count": user.missed_count,
         "crop_type": user.crop_type, "crop_quantity": user.crop_quantity,
         "created_at": user.created_at
